@@ -1,0 +1,24 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts3d/Ball3D.gd" id="1_script"]
+
+[sub_resource type="StandardMaterial3D" id="1"]
+albedo_color = Color(1, 1, 1, 1)
+
+[sub_resource type="SphereMesh" id="2"]
+material = SubResource("1")
+radius = 0.5
+
+[sub_resource type="SphereShape3D" id="3"]
+radius = 0.5
+
+[node name="Ball3D" type="CharacterBody3D"]
+script = ExtResource("1_script")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("3")
+
+

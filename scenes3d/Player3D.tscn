@@ -1,0 +1,26 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts3d/Player3D.gd" id="1_script"]
+
+[sub_resource type="StandardMaterial3D" id="1"]
+albedo_color = Color(0.2, 0.7, 1, 1)
+
+[sub_resource type="CapsuleMesh" id="2"]
+material = SubResource("1")
+radius = 0.7
+height = 2.0
+
+[sub_resource type="CapsuleShape3D" id="3"]
+radius = 0.7
+height = 2.0
+
+[node name="Player3D" type="CharacterBody3D"]
+script = ExtResource("1_script")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("3")
+
+

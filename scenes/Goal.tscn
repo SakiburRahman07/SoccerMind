@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://soccer_mind_goal_001"]
+
+[sub_resource type="RectangleShape2D" id="1"]
+size = Vector2(16, 200)
+
+[node name="Goal" type="Area2D"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("1")
+
+

@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://soccer_mind_team_001"]
+
+[ext_resource type="Script" path="res://scripts/Team.gd" id="1_team_script"]
+
+[node name="Team" type="Node2D"]
+script = ExtResource("1_team_script")
+
+
