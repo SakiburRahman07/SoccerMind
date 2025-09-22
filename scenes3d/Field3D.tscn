@@ -1,14 +1,39 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes3d/Ball3D.tscn" id="1_ball"]
 [ext_resource type="PackedScene" path="res://scenes3d/Goal3D.tscn" id="2_goal"]
 
 [sub_resource type="StandardMaterial3D" id="1"]
-albedo_color = Color(0.15, 0.6, 0.2, 1)
+albedo_color = Color(0.12, 0.55, 0.18, 1)
+roughness = 0.8
+metallic = 0.0
 
 [sub_resource type="BoxMesh" id="2"]
 size = Vector3(120, 1, 70)
 material = SubResource("1")
+
+[sub_resource type="StandardMaterial3D" id="7_lines_mat"]
+albedo_color = Color(1, 1, 1, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="8_line_mesh"]
+size = Vector3(0.5, 0.2, 68)
+material = SubResource("7_lines_mat")
+
+[sub_resource type="TorusMesh" id="9_torus"]
+inner_radius = 9.0
+outer_radius = 9.2
+ring_sides = 20
+sides = 32
+material = SubResource("7_lines_mat")
+
+[sub_resource type="BoxMesh" id="10_pl_box"]
+size = Vector3(16, 0.2, 40)
+material = SubResource("7_lines_mat")
+
+[sub_resource type="BoxMesh" id="11_pr_box"]
+size = Vector3(16, 0.2, 40)
+material = SubResource("7_lines_mat")
 
 [sub_resource type="BoxShape3D" id="3"]
 size = Vector3(120, 1, 70)
@@ -39,6 +64,22 @@ mesh = SubResource("2")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
 shape = SubResource("3")
+
+[node name="HalfLine" type="MeshInstance3D" parent="."]
+mesh = SubResource("8_line_mesh")
+position = Vector3(0, 0.11, 0)
+
+[node name="CenterCircle" type="MeshInstance3D" parent="."]
+mesh = SubResource("9_torus")
+position = Vector3(0, 0.12, 0)
+
+[node name="PenaltyLeft" type="MeshInstance3D" parent="."]
+mesh = SubResource("10_pl_box")
+position = Vector3(-52, 0.11, 0)
+
+[node name="PenaltyRight" type="MeshInstance3D" parent="."]
+mesh = SubResource("11_pr_box")
+position = Vector3(52, 0.11, 0)
 
 [node name="WallLeft" type="StaticBody3D" parent="."]
 position = Vector3(-60, 1, 0)

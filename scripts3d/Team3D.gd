@@ -25,6 +25,16 @@ func _spawn_players() -> void:
 		add_child(p)
 		p.global_transform.origin = positions[i]
 		p.setup(ball, ai)
+		# Set team colors (A: blue, B: red)
+		var mesh: MeshInstance3D = p.get_node_or_null("MeshInstance3D")
+		if mesh and mesh.mesh:
+			var mat := mesh.get_active_material(0)
+			if mat == null:
+				mat = mesh.mesh.surface_get_material(0)
+			if mat:
+				mat = mat.duplicate()
+				mat.albedo_color = Color(0.2, 0.5, 1.0) if is_team_a else Color(1.0, 0.3, 0.3)
+				mesh.set_surface_override_material(0, mat)
 		players.append(p)
 
 func _default_positions() -> Array:
