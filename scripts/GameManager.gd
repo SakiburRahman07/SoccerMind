@@ -22,6 +22,11 @@ var is_match_over: bool = false
 var kickoff_delay_seconds: float = 1.5
 var is_in_kickoff_delay: bool = false
 
+# Stalemate detection
+var _stall_timer: float = 0.0
+var stall_velocity_epsilon: float = 6.0
+var stall_seconds_threshold: float = 2.0
+
 # HUD nodes created at runtime (no scene edits needed)
 var hud_layer: CanvasLayer
 var score_label: Label
@@ -66,6 +71,7 @@ func _physics_process(_delta: float) -> void:
 	# Restart play if ball goes out of bounds (e.g., to corners or outside field)
 	if _is_out_of_bounds(ball.global_position) and not is_in_kickoff_delay and not is_match_over:
 		_start_kickoff_delay()
+	_detect_and_recover_from_stall(_delta)
 
 func _process(delta: float) -> void:
 	if is_match_over:
@@ -142,11 +148,7 @@ func _setup_hud() -> void:
 	kickoff_timer.one_shot = true
 	kickoff_timer.wait_time = kickoff_delay_seconds
 	add_child(kickoff_timer)
-	kickoff_timer.timeout.connect(func():
-		is_in_kickoff_delay = false
-		message_label.text = ""
-		_reset_kickoff()
-	)
+	kickoff_timer.timeout.connect(_on_kickoff_timeout)
 
 func _update_hud() -> void:
 	score_label.text = "A %d - %d B" % [score_a, score_b]
@@ -166,3 +168,33 @@ func _end_match() -> void:
 	is_match_over = true
 	ball.velocity = Vector2.ZERO
 	message_label.text = "Full Time"
+
+func _detect_and_recover_from_stall(delta: float) -> void:
+	if is_match_over or is_in_kickoff_delay:
+		_stall_timer = 0.0
+		return
+	var ball_still: bool = ball.velocity.length() <= stall_velocity_epsilon
+	var players_still: bool = true
+	for team in [team_a, team_b]:
+		if not team:
+			continue
+		for child in team.get_children():
+			if child is Player:
+				if child.velocity.length() > stall_velocity_epsilon:
+					players_still = false
+					break
+		if not players_still:
+			break
+	if ball_still and players_still:
+		_stall_timer += delta
+		if _stall_timer >= stall_seconds_threshold:
+			message_label.text = "Stall - Kickoff"
+			_start_kickoff_delay()
+			_stall_timer = 0.0
+	else:
+		_stall_timer = 0.0
+
+func _on_kickoff_timeout() -> void:
+	is_in_kickoff_delay = false
+	message_label.text = ""
+	_reset_kickoff()

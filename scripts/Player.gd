@@ -41,7 +41,13 @@ func _physics_process(delta: float) -> void:
 	if ai:
 		if ai.has_method("decide"):
 			var decision: Dictionary = ai.decide()
-			_apply_decision(decision, delta)
+			# Treat idle as minimal movement toward ball to avoid deadlocks
+			if decision.get("action", "") == "idle" and ball:
+				var idle_dir: Vector2 = (ball.global_position - global_position).normalized()
+				velocity = idle_dir * (speed * 0.5)
+				move_and_slide()
+			else:
+				_apply_decision(decision, delta)
 		else:
 			# Safe fallback: drift toward ball so player never halts due to missing AI method
 			if ball:
