@@ -16,8 +16,6 @@ func decide() -> Dictionary:
 	if distance_to_ball < 2.0:
 		# Punch ball to flanks
 		var side := randf_range(-6.0, 6.0)
-		var sign := 1.0 if player.is_team_a else -1.0
-		return {"action": "kick", "force": 20.0, "direction": Vector3(sign * 10.0, 0, side)}
+		var team_dir := 1.0 if player.is_team_a else -1.0
+		return {"action": "kick", "force": 20.0, "direction": Vector3(team_dir * 10.0, 0, side)}
 	return {"action": "move", "direction": dir}
-
-

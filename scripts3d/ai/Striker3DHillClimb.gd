@@ -11,8 +11,8 @@ func decide() -> Dictionary:
 	if to_ball.length() < 2.5:
 		return _pick_shot()
 	# Move toward a lane that leads to better shot angle
-	var sign := 1.0 if player.is_team_a else -1.0
-	var lane: Vector3 = Vector3(sign, 0, clamp((ball.global_transform.origin.z - player.global_transform.origin.z) * 0.2, -1.0, 1.0))
+	var team_dir := 1.0 if player.is_team_a else -1.0
+	var lane: Vector3 = Vector3(team_dir, 0, clamp((ball.global_transform.origin.z - player.global_transform.origin.z) * 0.2, -1.0, 1.0))
 	return {"action": "move", "direction": lane}
 
 func _pick_shot() -> Dictionary:
@@ -40,5 +40,3 @@ func _shot_score(dir: Vector3, opps: Array) -> float:
 		pressure += clamp(1.0 - to_o.length() / 12.0, 0.0, 1.0)
 	pressure = pressure / max(1, opps.size())
 	return adv * 0.8 + lob_bonus - pressure * 0.6
-
-

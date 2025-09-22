@@ -54,23 +54,23 @@ func _formation_roles() -> Array:
 	]
 
 func _formation_positions() -> Array:
-	var sign := 1.0 if is_team_a else -1.0
-	var base_x := -45.0 * sign
+	var team_dir := 1.0 if is_team_a else -1.0
+	var base_x := -45.0 * team_dir
 	# GK
 	var positions: Array = [ Vector3(base_x, 0, 0) ]
 	# Back four
-	positions.append(Vector3(base_x + 10.0 * sign, 0, -16))
-	positions.append(Vector3(base_x + 10.0 * sign, 0, -5))
-	positions.append(Vector3(base_x + 10.0 * sign, 0, 5))
-	positions.append(Vector3(base_x + 10.0 * sign, 0, 16))
+	positions.append(Vector3(base_x + 10.0 * team_dir, 0, -16))
+	positions.append(Vector3(base_x + 10.0 * team_dir, 0, -5))
+	positions.append(Vector3(base_x + 10.0 * team_dir, 0, 5))
+	positions.append(Vector3(base_x + 10.0 * team_dir, 0, 16))
 	# Mid four
-	positions.append(Vector3(base_x + 28.0 * sign, 0, -16))
-	positions.append(Vector3(base_x + 28.0 * sign, 0, -5))
-	positions.append(Vector3(base_x + 28.0 * sign, 0, 5))
-	positions.append(Vector3(base_x + 28.0 * sign, 0, 16))
+	positions.append(Vector3(base_x + 28.0 * team_dir, 0, -16))
+	positions.append(Vector3(base_x + 28.0 * team_dir, 0, -5))
+	positions.append(Vector3(base_x + 28.0 * team_dir, 0, 5))
+	positions.append(Vector3(base_x + 28.0 * team_dir, 0, 16))
 	# Two strikers
-	positions.append(Vector3(base_x + 45.0 * sign, 0, -6))
-	positions.append(Vector3(base_x + 45.0 * sign, 0, 6))
+	positions.append(Vector3(base_x + 45.0 * team_dir, 0, -6))
+	positions.append(Vector3(base_x + 45.0 * team_dir, 0, 6))
 	return positions
 
 func _make_ai_for_role(role: String, index: int) -> Node:

@@ -15,6 +15,11 @@ var last_scorer_team_a: bool = false
 var touchline_x: float = 60.0
 var goalline_z: float = 35.0
 
+# Stall detection
+var _stall_timer: float = 0.0
+var stall_velocity_epsilon: float = 0.2
+var stall_seconds_threshold: float = 2.0
+
 func _ready() -> void:
 	field = get_node_or_null("Field3D") as Node3D
 	if field == null:
@@ -29,7 +34,7 @@ func _ready() -> void:
 	_reset_kickoff()
 	set_process(true)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Detect out-of-bounds for throw-in / corner / goal kick
 	if ball == null:
 		return
@@ -38,6 +43,7 @@ func _process(_delta: float) -> void:
 		_handle_throw_in(pos)
 	elif abs(pos.z) > goalline_z:
 		_handle_corner_or_goal_kick(pos)
+	_detect_and_recover_from_stall(delta)
 
 func _nearest_player(for_team_a: bool, near_pos: Vector3) -> Node:
 	var group_name := "team_a" if for_team_a else "team_b"
@@ -52,10 +58,10 @@ func _nearest_player(for_team_a: bool, near_pos: Vector3) -> Node:
 	return best
 
 func _handle_throw_in(pos: Vector3) -> void:
-	var for_team_a: bool = not bool(ball.get("last_touch_team_a"))
+	var _for_team_a: bool = not bool(ball.get("last_touch_team_a"))
 	ball.global_transform.origin = Vector3(clamp(pos.x, -touchline_x, touchline_x), 1.0, clamp(pos.z, -goalline_z + 1.0, goalline_z - 1.0))
 	ball.velocity = Vector3.ZERO
-	var taker := _nearest_player(for_team_a, ball.global_transform.origin)
+	var taker := _nearest_player(_for_team_a, ball.global_transform.origin)
 	if taker:
 		# Simulate throw by lobbing inward slightly
 		var inward_x := -2.0 if ball.global_transform.origin.x > 0.0 else 2.0
@@ -63,7 +69,7 @@ func _handle_throw_in(pos: Vector3) -> void:
 		ball.kick(throw_dir, 10.0)
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
-	var for_team_a: bool = not bool(ball.get("last_touch_team_a"))
+	var _for_team_a: bool = not bool(ball.get("last_touch_team_a"))
 	var is_left := pos.x < 0.0
 	var corner_pos := Vector3(-touchline_x + 1.0 if is_left else touchline_x - 1.0, 1.0, goalline_z - 1.0)
 	ball.global_transform.origin = corner_pos
@@ -104,8 +110,8 @@ func _reset_kickoff() -> void:
 		# Kickoff: the team that conceded restarts
 		var kickoff_team: Node = team_b if last_scorer_team_a else team_a
 		# Two-touch kickoff: small ground pass between two central midfielders
-		var sign := 1.0 if kickoff_team == team_a else -1.0
-		var kickoff_target := Vector3(sign * 2.0, 0.0, 0.0)
+		var team_dir := 1.0 if kickoff_team == team_a else -1.0
+		var kickoff_target := Vector3(team_dir * 2.0, 0.0, 0.0)
 		ball.kick(kickoff_target, 6.0)
 
 func _on_goal_entered(body: Node) -> void:
@@ -139,3 +145,24 @@ func _on_goal_entered(body: Node) -> void:
 func _update_score_ui() -> void:
 	if score_label:
 		score_label.text = "A %d - %d B" % [score_a, score_b]
+
+func _detect_and_recover_from_stall(delta: float) -> void:
+	var ball_still: bool = ball and ball.velocity.length() <= stall_velocity_epsilon
+	var players_still: bool = true
+	for team in [team_a, team_b]:
+		if not team:
+			continue
+		for child in team.get_children():
+			if child is Player3D:
+				if child.velocity.length() > stall_velocity_epsilon:
+					players_still = false
+					break
+		if not players_still:
+			break
+	if ball_still and players_still:
+		_stall_timer += delta
+		if _stall_timer >= stall_seconds_threshold:
+			_reset_kickoff()
+			_stall_timer = 0.0
+	else:
+		_stall_timer = 0.0

@@ -36,8 +36,8 @@ func _best_pass(mates: Array, opps: Array) -> Dictionary:
 	return {"action": "kick", "force": 18.0, "direction": dir_pass}
 
 func _dribble_forward() -> Dictionary:
-	var sign := 1.0 if player.is_team_a else -1.0
-	var forward: Vector3 = Vector3(sign * 1.0, 0, randf_range(-0.5, 0.5))
+	var team_dir := 1.0 if player.is_team_a else -1.0
+	var forward: Vector3 = Vector3(team_dir * 1.0, 0, randf_range(-0.5, 0.5))
 	return {"action": "move", "direction": forward}
 
 func _lane_seek() -> Vector3:
@@ -59,5 +59,3 @@ func _eval_state(move: Dictionary) -> float:
 		score += abs(dirm.x) * 0.5
 		score += (0.5 - abs(dirm.z) * 0.1)
 	return score
-
-

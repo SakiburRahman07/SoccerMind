@@ -30,10 +30,18 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 func set_home_position(pos: Vector3) -> void:
 	home_position = pos
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if ai and ai.has_method("decide"):
 		var d: Dictionary = ai.decide()
-		_apply_decision(d)
+		if d.get("action", "") == "idle" and ball:
+			# Avoid idle stalls: nudge toward ball
+			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+			to_ball.y = 0.0
+			if to_ball.length() > 0.01:
+				velocity = to_ball.normalized() * speed * 0.6
+				move_and_slide()
+		else:
+			_apply_decision(d)
 	# Keep player locked to pitch plane
 	global_position.y = 1.0
 	# Keep inside field bounds

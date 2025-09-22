@@ -15,6 +15,6 @@ func decide() -> Dictionary:
 	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.5:
 		# Clear randomly toward sides
 		var clear_z := randf_range(-6.0, 6.0)
-		var sign := -1.0 if player.is_team_a else 1.0
-		return {"action": "kick", "force": 16.0, "direction": Vector3(sign * 10.0, 0, clear_z)}
+		var team_dir := -1.0 if player.is_team_a else 1.0
+		return {"action": "kick", "force": 16.0, "direction": Vector3(team_dir * 10.0, 0, clear_z)}
 	return {"action": "move", "direction": dir}
