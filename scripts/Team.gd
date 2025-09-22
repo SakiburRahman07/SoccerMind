@@ -65,7 +65,6 @@ func _random_ai_selection(count: int) -> Array:
 		"res://scripts/ai/MidfielderBFS.gd",
 		"res://scripts/ai/MidfielderDFS.gd",
 		"res://scripts/ai/MidfielderGreedy.gd",
-		"res://scripts/ai/Fuzzy.gd",
 		"res://scripts/ai/StrikerAStar.gd",
 		"res://scripts/ai/StrikerGreedy.gd",
 		"res://scripts/ai/StrikerHillClimb.gd"
