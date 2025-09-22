@@ -12,6 +12,8 @@ var score_a: int = 0
 var score_b: int = 0
 
 const TEAM_SIZE := 5
+const FIELD_BOUNDS_MIN := Vector2(32, 32)
+const FIELD_BOUNDS_MAX := Vector2(1248, 688)
 
 func _ready() -> void:
 	_setup_goals()
@@ -41,6 +43,14 @@ func _reset_kickoff() -> void:
 	if team_a and team_b:
 		team_a.call_deferred("reset_positions", true)
 		team_b.call_deferred("reset_positions", false)
+
+func _physics_process(_delta: float) -> void:
+	# Restart play if ball goes out of bounds (e.g., to corners or outside field)
+	if _is_out_of_bounds(ball.global_position):
+		_reset_kickoff()
+
+func _is_out_of_bounds(p: Vector2) -> bool:
+	return p.x < FIELD_BOUNDS_MIN.x or p.x > FIELD_BOUNDS_MAX.x or p.y < FIELD_BOUNDS_MIN.y or p.y > FIELD_BOUNDS_MAX.y
 
 func _on_goal_entered(body: Node) -> void:
 	if body != ball:

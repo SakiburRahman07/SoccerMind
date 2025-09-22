@@ -29,7 +29,7 @@ func _apply_decision(decision: Dictionary, _delta: float) -> void:
 		velocity = dir.normalized() * speed
 		move_and_slide()
 	elif action == "kick":
-		var dir_k: Vector2 = (ball.global_position - global_position)
+		var dir_k: Vector2 = decision.get("direction", (ball.global_position - global_position))
 		ball.kick(dir_k, decision.get("force", 300.0))
 		velocity = Vector2.ZERO
 		move_and_slide()

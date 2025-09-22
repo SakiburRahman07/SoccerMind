@@ -17,12 +17,13 @@ func _spawn_players() -> void:
 	players.clear()
 	var roles := ["goalkeeper", "defender", "midfielder", "midfielder", "striker"]
 	var positions := _default_positions()
+	var ai_paths := _random_ai_selection(roles.size())
 	for i in roles.size():
 		var p: CharacterBody2D = player_scene.instantiate()
 		p.is_team_a = is_team_a
 		p.role = roles[i]
 		p.global_position = positions[i]
-		var ai := _make_ai_for_role(roles[i])
+		var ai := load(ai_paths[i]).new()
 		add_child(p)
 		p.setup(ball, ai)
 		players.append(p)
@@ -53,6 +54,33 @@ func _make_ai_for_role(role: String) -> Node:
 			return load("res://scripts/ai/StrikerAStar.gd").new()
 		_:
 			return load("res://scripts/ai/MidfielderGreedy.gd").new()
+
+func _random_ai_selection(count: int) -> Array:
+	# Pool of 11 distinct AI algorithms
+	var pool := [
+		"res://scripts/ai/GoalkeeperAlphaBeta.gd",
+		"res://scripts/ai/GoalkeeperGreedy.gd",
+		"res://scripts/ai/DefenderDFS.gd",
+		"res://scripts/ai/DefenderBFS.gd",
+		"res://scripts/ai/MidfielderBFS.gd",
+		"res://scripts/ai/MidfielderDFS.gd",
+		"res://scripts/ai/MidfielderGreedy.gd",
+		"res://scripts/ai/Fuzzy.gd",
+		"res://scripts/ai/StrikerAStar.gd",
+		"res://scripts/ai/StrikerGreedy.gd",
+		"res://scripts/ai/StrikerHillClimb.gd"
+	]
+	pool.shuffle()
+	if count <= pool.size():
+		return pool.slice(0, count)
+	# If ever more than pool size, wrap around
+	var result: Array = []
+	while result.size() < count:
+		for path in pool:
+			result.append(path)
+			if result.size() >= count:
+				break
+	return result
 
 func reset_positions(_kickoff_left: bool) -> void:
 	var positions := _default_positions()
