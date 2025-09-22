@@ -13,7 +13,7 @@ func decide() -> Dictionary:
 	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.2
 	var dir: Vector3 = (desire + keep_shape).normalized()
 	var dist: float = to_ball.length()
-	if dist < 2.0:
+	if dist < 2.5:
 		# Shoot with slight randomness in Z to avoid deterministic cornering
 		var z_offset: float = randf_range(-4.0, 4.0)
 		var toward_goal: Vector3 = Vector3(target_x, 0, player.global_transform.origin.z + z_offset) - ball.global_transform.origin

@@ -11,7 +11,7 @@ func decide() -> Dictionary:
 	var desire: Vector3 = to_ball
 	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.3
 	var dir: Vector3 = (desire + keep_shape).normalized()
-	if to_ball.length() < 2.0:
+	if to_ball.length() < 2.5:
 		# Fuzzy passing to best teammate
 		var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")

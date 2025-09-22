@@ -21,7 +21,7 @@ func _spawn_players() -> void:
 		var p: CharacterBody3D = player_scene.instantiate()
 		p.is_team_a = is_team_a
 		p.role = roles[i]
-		var ai := _make_ai_for_role(roles[i])
+		var ai := _make_ai_for_role(roles[i], i)
 		add_child(p)
 		p.global_transform.origin = positions[i]
 		if p.has_method("set_home_position"):
@@ -73,19 +73,24 @@ func _formation_positions() -> Array:
 	positions.append(Vector3(base_x + 45.0 * sign, 0, 6))
 	return positions
 
-func _make_ai_for_role(role: String) -> Node:
+func _make_ai_for_role(role: String, index: int) -> Node:
 	match role:
 		"goalkeeper":
 			return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
 		"defender":
-			return load("res://scripts3d/ai/Defender3D.gd").new()
+			# Mix classic and DFS defenders
+			return load("res://scripts3d/ai/Defender3DDFS.gd" if (index % 2 == 1) else "res://scripts3d/ai/Defender3D.gd").new()
 		"midfielder":
-			if players.size() == 2:
-				return load("res://scripts3d/ai/Midfielder3DBFS.gd").new()
-			else:
-				return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
+			# Rotate between Greedy, BFS, and AlphaBeta
+			var pool := [
+				"res://scripts3d/ai/Midfielder3DGreedy.gd",
+				"res://scripts3d/ai/Midfielder3DBFS.gd",
+				"res://scripts3d/ai/Midfielder3DAlphaBeta.gd"
+			]
+			return load(pool[index % pool.size()]).new()
 		"striker":
-			return load("res://scripts3d/ai/Striker3D.gd").new()
+			# Alternate between baseline and hill-climbing striker
+			return load("res://scripts3d/ai/Striker3DHillClimb.gd" if (index % 2 == 1) else "res://scripts3d/ai/Striker3D.gd").new()
 		_:
 			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
 

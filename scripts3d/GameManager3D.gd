@@ -45,14 +45,14 @@ func _nearest_player(for_team_a: bool, near_pos: Vector3) -> Node:
 	var best: Node = null
 	var best_d: float = 1e9
 	for p in players:
-		var d := p.global_transform.origin.distance_to(near_pos)
+		var d: float = p.global_transform.origin.distance_to(near_pos)
 		if d < best_d:
 			best_d = d
 			best = p
 	return best
 
 func _handle_throw_in(pos: Vector3) -> void:
-	var for_team_a := not ball.get("last_touch_team_a")
+	var for_team_a: bool = not bool(ball.get("last_touch_team_a"))
 	ball.global_transform.origin = Vector3(clamp(pos.x, -touchline_x, touchline_x), 1.0, clamp(pos.z, -goalline_z + 1.0, goalline_z - 1.0))
 	ball.velocity = Vector3.ZERO
 	var taker := _nearest_player(for_team_a, ball.global_transform.origin)
@@ -63,7 +63,7 @@ func _handle_throw_in(pos: Vector3) -> void:
 		ball.kick(throw_dir, 10.0)
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
-	var for_team_a := not ball.get("last_touch_team_a")
+	var for_team_a: bool = not bool(ball.get("last_touch_team_a"))
 	var is_left := pos.x < 0.0
 	var corner_pos := Vector3(-touchline_x + 1.0 if is_left else touchline_x - 1.0, 1.0, goalline_z - 1.0)
 	ball.global_transform.origin = corner_pos

@@ -12,7 +12,7 @@ func decide() -> Dictionary:
 	var desire: Vector3 = (intercept - player.global_transform.origin)
 	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.5
 	var dir: Vector3 = (desire + keep_shape).normalized()
-	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.0:
+	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.5:
 		# Clear randomly toward sides
 		var clear_z := randf_range(-6.0, 6.0)
 		var sign := -1.0 if player.is_team_a else 1.0
