@@ -164,7 +164,10 @@ func _apply_decision(decision: Dictionary) -> void:
 	if action == "move":
 		var dir: Vector3 = decision.get("direction", Vector3.ZERO)
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
-		if to_ball.length() < 6.0:
+		var my_group_name := "team_a" if is_team_a else "team_b"
+		var my_team_rank: int = _team_rank_to_ball(my_group_name)
+		var direct_chase: bool = (to_ball.length() < 6.0) or (to_ball.length() < 20.0 and my_team_rank > 0 and my_team_rank <= 3)
+		if direct_chase:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
 			var mult: float = 1.0
@@ -333,6 +336,20 @@ func _is_self_closest_to_ball(players_in_cell: Array) -> bool:
 			best = p
 	return best == self
 
+func _team_rank_to_ball(group_name: String) -> int:
+	var nodes := get_tree().get_nodes_in_group(group_name)
+	var pairs: Array = []
+	for n in nodes:
+		if n is Player3D:
+			var p: Player3D = n
+			pairs.append({"p": p, "d": p.global_transform.origin.distance_to(ball.global_transform.origin)})
+	pairs.sort_custom(func(a, b): return a["d"] < b["d"])
+	var rank: int = 1
+	for item in pairs:
+		if item["p"] == self:
+			return rank
+		rank += 1
+	return 0
 func _rank_among_closest(players_in_cell: Array) -> int:
 	var pairs: Array = []
 	for n in players_in_cell:
