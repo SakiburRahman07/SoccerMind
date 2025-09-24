@@ -6,8 +6,8 @@ var ball: CharacterBody2D
 func decide() -> Dictionary:
 	if not player or not ball:
 		return {"action": "idle"}
-	# Simple zone defense: stay between ball and own goal
-	var goal_x: float = 80.0 if player.is_team_a else 1200.0
+	# Simple zone defense: stay between ball and own goal (flip applied)
+	var goal_x: float = 1200.0 if player.is_team_a else 80.0
 	var goal_pos := Vector2(goal_x, 360)
 	var intercept_point := goal_pos.lerp(ball.global_position, 0.25)
 	var dir: Vector2 = (intercept_point - player.global_position).normalized()

@@ -116,7 +116,7 @@ func _on_goal_entered(body: Node) -> void:
 # Drawing (boundary)
 # -----------------
 func _draw() -> void:
-	var rect := Rect2(FIELD_BOUNDS_MIN, FIELD_BOUNDS_MAX - FIELD_BOUNDS_MIN)
+	var rect: Rect2 = Rect2(FIELD_BOUNDS_MIN, FIELD_BOUNDS_MAX - FIELD_BOUNDS_MIN)
 	draw_rect(rect, Color(0.9, 0.9, 0.9, 0.8), false, 2.0)
 
 # -----------------
