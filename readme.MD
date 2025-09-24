@@ -354,7 +354,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Sakibur Rahman**
 - GitHub: [@SakiburRahman07](https://github.com/SakiburRahman07)
 - Project: [SoccerMind](https://github.com/SakiburRahman07/SoccerMind)
-
+**Shoumik Barman Polok**
+- GitHub: [@Polok04](https://github.com/Polok04)
+- Project: [SoccerMind](https://github.com/Polok04/SoccerMind)
 ---
 
 <div align="center">
