@@ -22,7 +22,8 @@ func decide() -> Dictionary:
 	return {"action": "move", "direction": lane}
 
 func _pick_shot() -> Dictionary:
-	var target_x: float = 58.0 if player.is_team_a else -58.0
+	# Team A should shoot toward -X, Team B toward +X (flip from before)
+	var target_x: float = -58.0 if player.is_team_a else 58.0
 	var best_dir: Vector3 = Vector3(target_x - ball.global_transform.origin.x, 0, 0)
 	var best_score: float = -INF
 	var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
@@ -47,11 +48,21 @@ func _pick_shot() -> Dictionary:
 	return {"action": "kick", "force": force, "direction": best_dir}
 
 func _shot_score(dir: Vector3, opps: Array) -> float:
+	# Penalize shots near the goalkeeper; encourage corners/open space
 	var adv: float = abs(dir.x)
-	var lob_bonus: float = max(0.0, dir.y) * 0.3
+	var lob_bonus: float = max(0.0, dir.y) * 0.25
 	var pressure: float = 0.0
+	var gk_penalty: float = 0.0
+	var keeper_z: float = 0.0
+	var have_gk := false
 	for o in opps:
 		var to_o: Vector3 = o.global_transform.origin - ball.global_transform.origin
 		pressure += clamp(1.0 - to_o.length() / 12.0, 0.0, 1.0)
+		if o is Player3D and o.role == "goalkeeper":
+			keeper_z = o.global_transform.origin.z
+			have_gk = true
 	pressure = pressure / max(1, opps.size())
-	return adv * 0.8 + lob_bonus - pressure * 0.6
+	if have_gk:
+		var end_z: float = (ball.global_transform.origin + dir.normalized() * 8.0).z
+		gk_penalty = clamp(1.0 - abs(end_z - keeper_z) / 10.0, 0.0, 1.0) * 0.6
+	return adv * 0.8 + lob_bonus - pressure * 0.4 - gk_penalty
