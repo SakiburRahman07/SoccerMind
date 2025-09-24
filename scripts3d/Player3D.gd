@@ -230,11 +230,11 @@ func _apply_grid_tactics_if_applicable() -> bool:
 
 	if my_team_in_possession and i_am_closest_on_my_team:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
-		if dist_to_ball < 1.1:
+		if dist_to_ball < 1.6:
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
 			# Slight aim toward center of goal mouth
-			var shoot_dir: Vector3 = Vector3(target_x, 0.0, clamp(ball.global_transform.origin.z, -field_half_height_z + 4.0, field_half_height_z - 4.0)) - ball.global_transform.origin
-			ball.kick(shoot_dir, 17.0)
+			var shoot_dir: Vector3 = Vector3(target_x, 0.0, clamp(ball.global_transform.origin.z, -field_half_height_z + 6.0, field_half_height_z - 6.0)) - ball.global_transform.origin
+			ball.kick(shoot_dir, 19.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", is_team_a)
 			velocity = Vector3.ZERO

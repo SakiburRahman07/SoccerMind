@@ -49,12 +49,13 @@ func _spawn_players() -> void:
 			if mesh_part is MeshInstance3D:
 				var mesh: MeshInstance3D = mesh_part
 				if mesh.mesh:
-					# Try active override, then surface material (ArrayMesh), then PrimitiveMesh material
-					var existing := mesh.get_active_material(0)
+					# Try active override, then ArrayMesh surface material, then PrimitiveMesh material
+					var existing: Material = mesh.get_active_material(0)
 					if existing == null:
-						existing = mesh.mesh.surface_get_material(0)
-					if existing == null and mesh.mesh.has_method("get") and mesh.mesh.has_property("material"):
-						existing = mesh.mesh.material
+						if mesh.mesh is ArrayMesh:
+							existing = (mesh.mesh as ArrayMesh).surface_get_material(0)
+						elif mesh.mesh is PrimitiveMesh:
+							existing = (mesh.mesh as PrimitiveMesh).material
 					# Duplicate if we found one; otherwise create a fresh StandardMaterial3D
 					var mat: Material = null
 					if existing != null:
@@ -64,13 +65,14 @@ func _spawn_players() -> void:
 					# Apply kit color and set override (fallback to material_override if no surfaces)
 					if mat is StandardMaterial3D:
 						mat.albedo_color = target_color
-					var has_surfaces: bool = false
-					if mesh.mesh and mesh.mesh.has_method("get_surface_count"):
-						var sc := mesh.mesh.get_surface_count()
-						has_surfaces = (sc is int and sc > 0)
-					if has_surfaces:
-						mesh.set_surface_override_material(0, mat)
-					else:
+					var applied := false
+					if mesh.mesh is ArrayMesh:
+						var sc: int = (mesh.mesh as ArrayMesh).get_surface_count()
+						if sc > 0:
+							mesh.set_surface_override_material(0, mat)
+							applied = true
+					if not applied:
+						# Fallback for PrimitiveMesh or meshes without surfaces
 						mesh.material_override = mat
 		# Assign per-player grid bounds and staging, except rover and GK
 		if roles[i] == "goalkeeper":
