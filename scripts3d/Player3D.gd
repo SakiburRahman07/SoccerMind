@@ -7,7 +7,7 @@ class_name Player3D
 @export var grid_cell_size: float = 4.0
 
 var ball: CharacterBody3D
-var speed: float = 8.0
+var speed: float = 9.5
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
@@ -38,7 +38,7 @@ func _physics_process(_delta: float) -> void:
 			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
 			to_ball.y = 0.0
 			if to_ball.length() > 0.01:
-				velocity = to_ball.normalized() * speed * 0.6
+				velocity = to_ball.normalized() * speed * 0.7
 				move_and_slide()
 		else:
 			_apply_decision(d)
@@ -71,7 +71,10 @@ func _apply_decision(decision: Dictionary) -> void:
 		if to_ball.length() < 6.0:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
-			velocity = move_vec.normalized() * speed
+			var mult: float = 1.0
+			if to_ball.length() < 8.0:
+				mult = 1.12
+			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
 			# Grid-constrained movement toward desired direction
@@ -97,7 +100,7 @@ func _apply_decision(decision: Dictionary) -> void:
 		var default_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
 		var forward_from_ball: Vector3 = Vector3(default_target_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
 		var dir: Vector3 = decision.get("direction", forward_from_ball)
-		ball.kick(dir, decision.get("force", 15.0))
+		ball.kick(dir, decision.get("force", 17.0))
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
