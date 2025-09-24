@@ -249,7 +249,10 @@ func _detect_and_recover_from_stall(delta: float) -> void:
 	if ball_still and players_still:
 		_stall_timer += delta
 		if _stall_timer >= stall_seconds_threshold:
-			_reset_kickoff()
+			# Gently nudge ball toward center instead of hard reset
+			var toward_center: Vector3 = (Vector3(0, 1.0, 0) - ball.global_transform.origin)
+			toward_center.y = 0.3
+			ball.kick(toward_center.normalized(), 4.0)
 			_stall_timer = 0.0
 	else:
 		_stall_timer = 0.0

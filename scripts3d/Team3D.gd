@@ -2,13 +2,21 @@ extends Node3D
 
 @onready var player_scene: PackedScene = load("res://scenes3d/Player3D.tscn")
 
-var players: Array = []
+var players: Array[CharacterBody3D] = []
 var is_team_a: bool = true
 var ball: CharacterBody3D
+
+# 3x3 grid over field for player assignment
+const GRID_COLS := 3
+const GRID_ROWS := 3
+@export var field_half_width_x: float = 60.0
+@export var field_half_height_z: float = 35.0
+var grid_cells: Array[Dictionary] = [] # each: {min_x,max_x,min_z,max_z,center:Vector3}
 
 func configure_team(_is_team_a: bool, _ball: CharacterBody3D) -> void:
 	is_team_a = _is_team_a
 	ball = _ball
+	_compute_grid_cells()
 	_spawn_players()
 
 func _spawn_players() -> void:
@@ -54,7 +62,63 @@ func _spawn_players() -> void:
 					if mat is StandardMaterial3D:
 						mat.albedo_color = target_color
 					mesh.set_surface_override_material(0, mat)
+		# Assign per-player grid bounds and adjust initial placement to grid centers
+		if p.has_method("set_grid_bounds") and grid_cells.size() == GRID_COLS * GRID_ROWS:
+			var grid_index := _grid_index_for_player(roles[i], i)
+			var cell: Dictionary = grid_cells[grid_index]
+			p.set_grid_bounds(cell["min_x"], cell["max_x"], cell["min_z"], cell["max_z"], cell["center"])
+			# Stage players at sidelines initially, then move to grid centers on kickoff
+			var center: Vector3 = cell["center"]
+			var stage_x := -field_half_width_x + 1.5 if is_team_a else field_half_width_x - 1.5
+			var stage_pos := Vector3(stage_x, 0.0, center.z)
+			if p.has_method("set_staging_target"):
+				p.set_staging_target(Vector3(center.x + (-2.0 if is_team_a else 2.0), 0.0, center.z))
+			# Keep GK near goal and center player near middle from the start
+			if roles[i] != "goalkeeper" and not _is_center_player(i):
+				p.global_transform.origin = stage_pos
 		players.append(p)
+
+func _compute_grid_cells() -> void:
+	grid_cells.clear()
+	var total_w := field_half_width_x * 2.0
+	var total_h := field_half_height_z * 2.0
+	var cell_w := total_w / float(GRID_COLS)
+	var cell_h := total_h / float(GRID_ROWS)
+	for r in range(GRID_ROWS):
+		for c in range(GRID_COLS):
+			var min_x := -field_half_width_x + c * cell_w
+			var max_x := min_x + cell_w
+			var min_z := -field_half_height_z + r * cell_h
+			var max_z := min_z + cell_h
+			var center := Vector3((min_x + max_x) * 0.5, 0.0, (min_z + max_z) * 0.5)
+			grid_cells.append({
+				"min_x": min_x,
+				"max_x": max_x,
+				"min_z": min_z,
+				"max_z": max_z,
+				"center": center,
+			})
+
+func _grid_index_for_player(role: String, index: int) -> int:
+	# Reserve center cell (row 1, col 1) for designated center player, GK stays near goal
+	if role == "goalkeeper":
+		# left goal for Team B, right goal for Team A → map to near-goal column
+		return (1 * GRID_COLS) + (2 if is_team_a else 0)
+	if _is_center_player(index):
+		return (1 * GRID_COLS) + 1
+	# Distribute others across remaining cells in row-major order skipping center column if GK used it
+	var order: Array = []
+	for r in range(GRID_ROWS):
+		for c in range(GRID_COLS):
+			var idx := r * GRID_COLS + c
+			# skip GK column on own half front row? keep simple: include all
+			order.append(idx)
+	# Simple round-robin based on player index
+	return order[(index + (1 if is_team_a else 0)) % order.size()]
+
+func _is_center_player(index: int) -> bool:
+	# Choose one midfielder as the center player: the first midfielder in list
+	return index == 6 # based on formation ordering above
 
 func _formation_roles() -> Array:
 	# 4-4-2 with GK
@@ -110,4 +174,12 @@ func _make_ai_for_role(role: String, index: int) -> Node:
 func reset_positions(_kickoff_left: bool) -> void:
 	var positions := _formation_positions()
 	for i in players.size():
-		players[i].global_transform.origin = positions[i]
+		var p: CharacterBody3D = players[i]
+		p.global_transform.origin = positions[i]
+		# Re-apply grid center positioning for non-GK, non-center
+		if p.has_method("set_grid_bounds") and grid_cells.size() == GRID_COLS * GRID_ROWS:
+			if p.role != "goalkeeper" and not _is_center_player(i):
+				var cell: Dictionary = grid_cells[_grid_index_for_player(p.role, i)]
+				var side_offset_x := -2.0 if is_team_a else 2.0
+				var center: Vector3 = cell["center"]
+				p.global_transform.origin = Vector3(center.x + side_offset_x, 0.0, center.z)
