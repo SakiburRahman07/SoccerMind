@@ -15,6 +15,12 @@ var last_scorer_team_a: bool = false
 var touchline_x: float = 60.0
 var goalline_z: float = 35.0
 
+# Restart management
+var _restart_in_progress: bool = false
+var _restart_timer: Timer = null
+var _frozen_players: Array = []
+var _restart_taker: Node = null
+
 # Stall detection
 var _stall_timer: float = 0.0
 var stall_velocity_epsilon: float = 0.2
@@ -34,14 +40,21 @@ func _ready() -> void:
 	_reset_kickoff()
 	set_process(true)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_N:
+			var env := field.get_node_or_null("EnvironmentController")
+			if env and env.has_method("toggle_day_night"):
+				env.call("toggle_day_night")
+
 func _process(delta: float) -> void:
 	# Detect out-of-bounds for throw-in / corner / goal kick
 	if ball == null:
 		return
 	var pos := ball.global_transform.origin
-	if abs(pos.x) > touchline_x:
+	if abs(pos.x) > touchline_x and not _restart_in_progress:
 		_handle_throw_in(pos)
-	elif abs(pos.z) > goalline_z:
+	elif abs(pos.z) > goalline_z and not _restart_in_progress:
 		_handle_corner_or_goal_kick(pos)
 	_detect_and_recover_from_stall(delta)
 
@@ -63,22 +76,94 @@ func _handle_throw_in(pos: Vector3) -> void:
 	ball.velocity = Vector3.ZERO
 	var taker := _nearest_player(_for_team_a, ball.global_transform.origin)
 	if taker:
-		# Simulate throw by lobbing inward slightly
+		# Freeze other players briefly and schedule the throw
+		_begin_restart(taker)
 		var inward_x := -2.0 if ball.global_transform.origin.x > 0.0 else 2.0
 		var throw_dir := Vector3(inward_x, 6.0, 0.0)
-		ball.kick(throw_dir, 10.0)
+		_schedule_restart_kick(throw_dir, 10.0)
+		# Record restart touch
+		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
+			var is_a: bool = bool(taker.get("is_team_a"))
+			ball.set("last_touch_team_a", is_a)
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
-	var _for_team_a: bool = not bool(ball.get("last_touch_team_a"))
-	var is_left := pos.x < 0.0
-	var corner_pos := Vector3(-touchline_x + 1.0 if is_left else touchline_x - 1.0, 1.0, goalline_z - 1.0)
-	ball.global_transform.origin = corner_pos
-	ball.velocity = Vector3.ZERO
-	# Corner: lob toward box
-	var into_box := Vector3(5.0 if is_left else -5.0, 7.0, -6.0)
-	ball.kick(into_box, 12.0)
+	# Determine if corner or goal kick based on last touch team and which goal line exited
+	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
+	var exited_left_goal_line: bool = pos.z > 0.0 or pos.z < 0.0 # any goalline
+	var is_left_side: bool = pos.x < 0.0
+	# Attacking team is opposite of defending goal. If last touch was attacker, it's goal kick; else corner
+	var defending_team_a_for_this_end: bool = pos.z > 0.0 ? false : true # top end defended by Team B, bottom by Team A (approx)
+	var last_touch_attacking: bool = (last_touch_a != defending_team_a_for_this_end)
+	if last_touch_attacking:
+		# Goal kick for defending team
+		var taker_is_team_a: bool = defending_team_a_for_this_end
+		var goal_kick_spot := Vector3(( -touchline_x + 6.0 ) if is_left_side else ( touchline_x - 6.0 ), 1.0, (goalline_z - 2.0) * (1.0 if pos.z < 0.0 else -1.0))
+		ball.global_transform.origin = goal_kick_spot
+		ball.velocity = Vector3.ZERO
+		var taker := _nearest_player(taker_is_team_a, ball.global_transform.origin)
+		if taker:
+			_begin_restart(taker)
+			# Drive upfield
+			var up_dir_x := -8.0 if taker_is_team_a else 8.0
+			var drive := Vector3(up_dir_x, 3.0, ( -5.0 if is_left_side else 5.0 ))
+			_schedule_restart_kick(drive, 14.0)
+			if ball.has_method("set"):
+				ball.set("last_touch_team_a", taker_is_team_a)
+	else:
+		# Corner for attacking team at nearest corner arc
+		var taker_is_team_a_c: bool = not defending_team_a_for_this_end
+		var corner_pos := Vector3(-touchline_x + 1.0 if is_left_side else touchline_x - 1.0, 1.0, (goalline_z - 1.0) * (1.0 if pos.z < 0.0 else -1.0))
+		ball.global_transform.origin = corner_pos
+		ball.velocity = Vector3.ZERO
+		var taker_c := _nearest_player(taker_is_team_a_c, ball.global_transform.origin)
+		if taker_c:
+			_begin_restart(taker_c)
+			# Corner: lob toward box
+			var into_box := Vector3(5.0 if is_left_side else -5.0, 7.0, ( -6.0 if pos.z < 0.0 else 6.0 ))
+			_schedule_restart_kick(into_box, 12.0)
+			if ball.has_method("set"):
+				ball.set("last_touch_team_a", taker_is_team_a_c)
+
+func _begin_restart(taker: Node) -> void:
+	_restart_in_progress = true
+	_restart_taker = taker
+	_freeze_all_except(taker)
+	if _restart_timer == null:
+		_restart_timer = Timer.new()
+		_restart_timer.one_shot = true
+		add_child(_restart_timer)
+
+func _schedule_restart_kick(dir: Vector3, force: float) -> void:
+	# small delay to make restart readable
+	_restart_timer.wait_time = 0.6
+	_restart_timer.timeout.connect(func():
+		ball.kick(dir, force)
+		_unfreeze_all()
+		_restart_in_progress = false
+		_restart_taker = null
+		, CONNECT_ONE_SHOT)
+	_restart_timer.start()
+
+func _freeze_all_except(taker: Node) -> void:
+	_frozen_players.clear()
+	for team in [team_a, team_b]:
+		if not team:
+			continue
+		for child in team.get_children():
+			if child is Player3D:
+				if child == taker:
+					continue
+				_frozen_players.append(child)
+				child.set_physics_process(false)
+
+func _unfreeze_all() -> void:
+	for p in _frozen_players:
+		if is_instance_valid(p):
+			p.set_physics_process(true)
+	_frozen_players.clear()
 
 func _setup_goals() -> void:
+	# Flip: Team B defends left; Team A defends right
 	if goal_left:
 		goal_left.set_meta("team", "B")
 		goal_left.body_entered.connect(func(b): _on_goal_entered(b))

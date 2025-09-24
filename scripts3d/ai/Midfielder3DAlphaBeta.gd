@@ -31,9 +31,17 @@ func _best_pass(mates: Array, opps: Array) -> Dictionary:
 	var target: Vector3 = pick.get("target", player.global_transform.origin + Vector3((1.0 if player.is_team_a else -1.0) * 7.0, 0, 0))
 	var lob: bool = pick.get("lob", false)
 	var dir_pass: Vector3 = (target - ball.global_transform.origin)
+	var min_opp: float = 9999.0
+	for o in opps:
+		var d: float = o.global_transform.origin.distance_to(target)
+		if d < min_opp:
+			min_opp = d
+	var pressure: float = clamp(1.0 - min_opp / 10.0, 0.0, 1.0)
+	var distance: float = dir_pass.length()
+	var force: float = fuzzy.decide_pass_force(distance, pressure)
 	if lob:
 		dir_pass.y = 5.5
-	return {"action": "kick", "force": 18.0, "direction": dir_pass}
+	return {"action": "kick", "force": force, "direction": dir_pass}
 
 func _dribble_forward() -> Dictionary:
 	var team_dir := 1.0 if player.is_team_a else -1.0

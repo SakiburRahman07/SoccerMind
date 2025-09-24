@@ -29,8 +29,11 @@ func _spawn_players() -> void:
 		p.setup(ball, ai)
 		# tag by group for fuzzy pass
 		p.add_to_group("team_a" if is_team_a else "team_b")
-		# Set team colors (A: blue, B: red) on all mesh parts
+		# Set kit colors: Outfield (A: blue, B: red). Goalkeeper: high-visibility yellow/green
 		var target_color := Color(0.2, 0.5, 1.0) if is_team_a else Color(1.0, 0.3, 0.3)
+		if roles[i] == "goalkeeper":
+			# Common GK kits are bright for visibility (inspired by football uniforms)
+			target_color = Color(1.0, 0.9, 0.2)
 		for mesh_part in p.get_children():
 			if mesh_part is MeshInstance3D:
 				var mesh: MeshInstance3D = mesh_part
@@ -54,7 +57,8 @@ func _formation_roles() -> Array:
 	]
 
 func _formation_positions() -> Array:
-	var team_dir := 1.0 if is_team_a else -1.0
+	# Flip halves: Team A now starts on +X, Team B on -X
+	var team_dir := -1.0 if is_team_a else 1.0
 	var base_x := -45.0 * team_dir
 	# GK
 	var positions: Array = [ Vector3(base_x, 0, 0) ]

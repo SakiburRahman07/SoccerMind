@@ -35,7 +35,7 @@ var message_label: Label
 var kickoff_timer: Timer
 
 func _ready() -> void:
-	_add_to_group("Game")
+	add_to_group("Game")
 	_setup_hud()
 	time_left_seconds = match_duration_seconds
 	is_match_over = false
@@ -44,6 +44,7 @@ func _ready() -> void:
 	_reset_kickoff()
 
 func _setup_goals() -> void:
+	# Flip: Team B defends left; Team A defends right
 	goal_left.set_meta("team", "B")
 	goal_right.set_meta("team", "A")
 	goal_left.body_entered.connect(func(b): _on_goal_entered(b))
@@ -115,7 +116,7 @@ func _on_goal_entered(body: Node) -> void:
 # Drawing (boundary)
 # -----------------
 func _draw() -> void:
-	var rect := Rect2(FIELD_BOUNDS_MIN, FIELD_BOUNDS_MAX - FIELD_BOUNDS_MIN)
+	var rect: Rect2 = Rect2(FIELD_BOUNDS_MIN, FIELD_BOUNDS_MAX - FIELD_BOUNDS_MIN)
 	draw_rect(rect, Color(0.9, 0.9, 0.9, 0.8), false, 2.0)
 
 # -----------------
@@ -179,7 +180,7 @@ func _detect_and_recover_from_stall(delta: float) -> void:
 		if not team:
 			continue
 		for child in team.get_children():
-			if child is Player:
+			if child is Player3D:
 				if child.velocity.length() > stall_velocity_epsilon:
 					players_still = false
 					break

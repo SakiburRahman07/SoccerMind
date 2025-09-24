@@ -7,7 +7,7 @@ class_name Player3D
 @export var grid_cell_size: float = 4.0
 
 var ball: CharacterBody3D
-var speed: float = 8.0
+var speed: float = 9.5
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
@@ -38,29 +38,43 @@ func _physics_process(_delta: float) -> void:
 			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
 			to_ball.y = 0.0
 			if to_ball.length() > 0.01:
-				velocity = to_ball.normalized() * speed * 0.6
+				velocity = to_ball.normalized() * speed * 0.7
 				move_and_slide()
 		else:
 			_apply_decision(d)
 	# Keep player locked to pitch plane
 	global_position.y = 1.0
-	# Keep inside field bounds
-	var clamped_x: float = clamp(global_position.x, -field_half_width_x + 0.5, field_half_width_x - 0.5)
-	var clamped_z: float = clamp(global_position.z, -field_half_height_z + 0.5, field_half_height_z - 0.5)
+	# Relaxed bounds to allow slight overlap near walls
+	var margin: float = 0.3
+	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
+	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
 
 func _apply_decision(decision: Dictionary) -> void:
 	var action: String = decision.get("action", "move")
+	var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+	to_ball.y = 0.0
+	# Boundary pursuit override: if ball near boundary, chase directly (ignore grid)
+	if _is_ball_near_boundary(1.5):
+		if to_ball.length() > 0.01:
+			velocity = to_ball.normalized() * speed
+			# Wall-hug nudge when extremely close and slow
+			if to_ball.length() < 1.0 and velocity.length() < 0.2:
+				velocity += _wall_hug_tangent() * 0.6
+			move_and_slide()
+			return
 	if action == "move":
 		var dir: Vector3 = decision.get("direction", Vector3.ZERO)
-		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
 		if to_ball.length() < 6.0:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
-			velocity = move_vec.normalized() * speed
+			var mult: float = 1.0
+			if to_ball.length() < 8.0:
+				mult = 1.12
+			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
 			# Grid-constrained movement toward desired direction
@@ -83,9 +97,10 @@ func _apply_decision(decision: Dictionary) -> void:
 				velocity = Vector3.ZERO
 			move_and_slide()
 	elif action == "kick":
-		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-		var dir: Vector3 = decision.get("direction", to_ball)
-		ball.kick(dir, decision.get("force", 15.0))
+		var default_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
+		var forward_from_ball: Vector3 = Vector3(default_target_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
+		var dir: Vector3 = decision.get("direction", forward_from_ball)
+		ball.kick(dir, decision.get("force", 17.0))
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
@@ -110,3 +125,23 @@ func _dir_to_grid_step(dir: Vector3) -> Vector2i:
 		return Vector2i(1 if dir.x > 0.0 else -1, 0)
 	else:
 		return Vector2i(0, 1 if dir.z > 0.0 else -1)
+
+func _is_ball_near_boundary(threshold: float) -> bool:
+	var bx: float = ball.global_transform.origin.x
+	var bz: float = ball.global_transform.origin.z
+	return abs(bx) > (field_half_width_x - threshold) or abs(bz) > (field_half_height_z - threshold)
+
+func _wall_hug_tangent() -> Vector3:
+	# Compute a tangent direction along the nearest wall to help slide into corners
+	var pos: Vector3 = global_transform.origin
+	var dx_left: float = abs(-field_half_width_x - pos.x)
+	var dx_right: float = abs(field_half_width_x - pos.x)
+	var dz_top: float = abs(-field_half_height_z - pos.z)
+	var dz_bottom: float = abs(field_half_height_z - pos.z)
+	var min_d: float = min(min(dx_left, dx_right), min(dz_top, dz_bottom))
+	if min_d == dx_left or min_d == dx_right:
+		# Near vertical wall → move along Z
+		return Vector3(0, 0, (ball.global_transform.origin.z - pos.z)).normalized()
+	else:
+		# Near horizontal wall → move along X
+		return Vector3((ball.global_transform.origin.x - pos.x), 0, 0).normalized()
