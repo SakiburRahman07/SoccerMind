@@ -89,7 +89,6 @@ func _handle_throw_in(pos: Vector3) -> void:
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	# Determine if corner or goal kick based on last touch team and which goal line exited
 	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
-	var exited_left_goal_line: bool = pos.z > 0.0 or pos.z < 0.0 # any goalline
 	var is_left_side: bool = pos.x < 0.0
 	# Attacking team is opposite of defending goal. If last touch was attacker, it's goal kick; else corner
 	var defending_team_a_for_this_end: bool = false if pos.z > 0.0 else true # top end defended by Team B, bottom by Team A (approx)
@@ -190,6 +189,9 @@ func _reset_kickoff() -> void:
 	ball.global_transform.origin = Vector3(0, 1, 0)
 	ball.velocity = Vector3.ZERO
 	if team_a and team_b:
+		# Re-configure teams to ensure ball references are maintained
+		team_a.call_deferred("configure_team", true, ball)
+		team_b.call_deferred("configure_team", false, ball)
 		team_a.call_deferred("reset_positions", true)
 		team_b.call_deferred("reset_positions", false)
 		# Kickoff: the team that conceded restarts

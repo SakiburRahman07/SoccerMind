@@ -4,6 +4,12 @@ var player: Node
 var ball: CharacterBody3D
 
 func decide() -> Dictionary:
+	# Try to re-acquire references if lost
+	if not player:
+		player = get_parent()
+	if not ball and player:
+		ball = player.ball
+	
 	if not player or not ball:
 		return {"action": "idle"}
 	# Home bias

@@ -34,11 +34,12 @@ func _physics_process(_delta: float) -> void:
 	if ai and ai.has_method("decide"):
 		var d: Dictionary = ai.decide()
 		if d.get("action", "") == "idle" and ball:
-			# Avoid idle stalls: nudge toward ball
+			# Robust ball pursuit: actively chase the ball when idle
 			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
 			to_ball.y = 0.0
 			if to_ball.length() > 0.01:
-				velocity = to_ball.normalized() * speed * 0.7
+				# Use full speed for ball pursuit instead of reduced speed
+				velocity = to_ball.normalized() * speed
 				move_and_slide()
 		else:
 			_apply_decision(d)

@@ -38,13 +38,22 @@ func _spawn_players() -> void:
 			if mesh_part is MeshInstance3D:
 				var mesh: MeshInstance3D = mesh_part
 				if mesh.mesh:
+					# Try active override, then surface material (ArrayMesh), then PrimitiveMesh material
 					var existing := mesh.get_active_material(0)
 					if existing == null:
 						existing = mesh.mesh.surface_get_material(0)
-					if existing:
-						var mat = existing.duplicate()
+					if existing == null and mesh.mesh.has_method("get") and mesh.mesh.has_property("material"):
+						existing = mesh.mesh.material
+					# Duplicate if we found one; otherwise create a fresh StandardMaterial3D
+					var mat: Material = null
+					if existing != null:
+						mat = existing.duplicate()
+					else:
+						mat = StandardMaterial3D.new()
+					# Apply kit color and set override
+					if mat is StandardMaterial3D:
 						mat.albedo_color = target_color
-						mesh.set_surface_override_material(0, mat)
+					mesh.set_surface_override_material(0, mat)
 		players.append(p)
 
 func _formation_roles() -> Array:

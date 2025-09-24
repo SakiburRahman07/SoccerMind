@@ -5,6 +5,12 @@ var ball: CharacterBody3D
 
 # Hill-climbing to pick a shot vector that maximizes heuristic (goalward, low opponent pressure)
 func decide() -> Dictionary:
+	# Try to re-acquire references if lost
+	if not player:
+		player = get_parent()
+	if not ball and player:
+		ball = player.ball
+	
 	if not player or not ball:
 		return {"action": "idle"}
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin

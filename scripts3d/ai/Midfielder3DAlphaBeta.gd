@@ -6,6 +6,12 @@ var ball: CharacterBody3D
 # Shallow minimax with alpha-beta pruning over two actions: move vs pass
 # Heuristic: field advancement, possession safety, team spacing
 func decide() -> Dictionary:
+	# Try to re-acquire references if lost
+	if not player:
+		player = get_parent()
+	if not ball and player:
+		ball = player.ball
+	
 	if not player or not ball:
 		return {"action": "idle"}
 	var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
