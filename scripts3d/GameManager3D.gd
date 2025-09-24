@@ -92,7 +92,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	var exited_left_goal_line: bool = pos.z > 0.0 or pos.z < 0.0 # any goalline
 	var is_left_side: bool = pos.x < 0.0
 	# Attacking team is opposite of defending goal. If last touch was attacker, it's goal kick; else corner
-	var defending_team_a_for_this_end: bool = pos.z > 0.0 ? false : true # top end defended by Team B, bottom by Team A (approx)
+	var defending_team_a_for_this_end: bool = false if pos.z > 0.0 else true # top end defended by Team B, bottom by Team A (approx)
 	var last_touch_attacking: bool = (last_touch_a != defending_team_a_for_this_end)
 	if last_touch_attacking:
 		# Goal kick for defending team
