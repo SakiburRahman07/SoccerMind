@@ -12,7 +12,8 @@ func decide() -> Dictionary:
 	
 	if not player or not ball:
 		return {"action": "idle"}
-	var target_x: float = 58.0 if player.is_team_a else -58.0
+	# Team A should shoot toward -X, Team B toward +X (flip from before)
+	var target_x: float = -58.0 if player.is_team_a else 58.0
 	var home: Vector3 = player.home_position if player and player.has_method("set_home_position") else player.global_transform.origin
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
 	var desire: Vector3 = to_ball

@@ -164,7 +164,10 @@ func _apply_decision(decision: Dictionary) -> void:
 	if action == "move":
 		var dir: Vector3 = decision.get("direction", Vector3.ZERO)
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
-		if to_ball.length() < 6.0:
+		var my_group_name := "team_a" if is_team_a else "team_b"
+		var my_team_rank: int = _team_rank_to_ball(my_group_name)
+		var direct_chase: bool = (to_ball.length() < 6.0) or (to_ball.length() < 20.0 and my_team_rank > 0 and my_team_rank <= 3)
+		if direct_chase:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
 			var mult: float = 1.0
@@ -267,8 +270,19 @@ func _apply_grid_tactics_if_applicable() -> bool:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
 		if dist_to_ball < 1.6:
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
-			# Slight aim toward center of goal mouth
-			var shoot_dir: Vector3 = Vector3(target_x, 0.0, clamp(ball.global_transform.origin.z, -field_half_height_z + 6.0, field_half_height_z - 6.0)) - ball.global_transform.origin
+			# Aim away from goalkeeper within grid tactic too
+			var keeper_z: float = 0.0
+			var have_gk: bool = false
+			for o in get_tree().get_nodes_in_group(opp_group):
+				if o is Player3D and o.role == "goalkeeper":
+					keeper_z = o.global_transform.origin.z
+					have_gk = true
+					break
+			var aim_z: float = clamp(ball.global_transform.origin.z, -field_half_height_z + 6.0, field_half_height_z - 6.0)
+			if have_gk:
+				var away_sign: float = 1.0 if (ball.global_transform.origin.z < keeper_z) else -1.0
+				aim_z = clamp(keeper_z + away_sign * 6.0, -field_half_height_z + 6.0, field_half_height_z - 6.0)
+			var shoot_dir: Vector3 = Vector3(target_x, 0.0, aim_z) - ball.global_transform.origin
 			ball.kick(shoot_dir, 19.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", is_team_a)
@@ -333,21 +347,48 @@ func _is_self_closest_to_ball(players_in_cell: Array) -> bool:
 			best = p
 	return best == self
 
+func _team_rank_to_ball(group_name: String) -> int:
+	var nodes := get_tree().get_nodes_in_group(group_name)
+	var my_d: float = 1e9
+	var found_self: bool = false
+	for n in nodes:
+		if n is Player3D and n == self:
+			my_d = self.global_transform.origin.distance_to(ball.global_transform.origin)
+			found_self = true
+			break
+	if not found_self:
+		return 0
+	var better_count: int = 0
+	for n in nodes:
+		if n is Player3D and n != self:
+			var d: float = n.global_transform.origin.distance_to(ball.global_transform.origin)
+			if d < my_d:
+				better_count += 1
+	return better_count + 1
 func _rank_among_closest(players_in_cell: Array) -> int:
-	var pairs: Array = []
+	var my_d: float = 1e9
+	var found_self: bool = false
 	for n in players_in_cell:
 		var p: Player3D = n
-		pairs.append({"p": p, "d": p.global_transform.origin.distance_to(ball.global_transform.origin)})
-	pairs.sort_custom(func(a, b): return a["d"] < b["d"])
-	var rank: int = 1
-	for item in pairs:
-		if item["p"] == self:
-			return rank
-		rank += 1
-	return 0
+		if p == self:
+			my_d = p.global_transform.origin.distance_to(ball.global_transform.origin)
+			found_self = true
+			break
+	if not found_self:
+		return 0
+	var better_count: int = 0
+	for n in players_in_cell:
+		var p2: Player3D = n
+		if p2 != self:
+			var d: float = p2.global_transform.origin.distance_to(ball.global_transform.origin)
+			if d < my_d:
+				better_count += 1
+	return better_count + 1
 
 func _world_to_grid(pos: Vector3) -> Vector2i:
 	return Vector2i(round(pos.x / grid_cell_size), round(pos.z / grid_cell_size))
+
+ 
 
 func _grid_to_world(g: Vector2i) -> Vector3:
 	return Vector3(float(g.x) * grid_cell_size, global_transform.origin.y, float(g.y) * grid_cell_size)
