@@ -2,13 +2,24 @@ extends Node3D
 
 @onready var player_scene: PackedScene = load("res://scenes3d/Player3D.tscn")
 
-var players: Array = []
+var players: Array[CharacterBody3D] = []
 var is_team_a: bool = true
 var ball: CharacterBody3D
+
+# 3x3 grid over field for player assignment
+const GRID_COLS := 3
+const GRID_ROWS := 3
+@export var field_half_width_x: float = 60.0
+@export var field_half_height_z: float = 35.0
+var grid_cells: Array[Dictionary] = [] # each: {min_x,max_x,min_z,max_z,center:Vector3}
+
+# Choose one non-GK player to be a rover (free to move all over field)
+const ROVER_INDEX_DEFAULT := 10 # by default, last role (striker)
 
 func configure_team(_is_team_a: bool, _ball: CharacterBody3D) -> void:
 	is_team_a = _is_team_a
 	ball = _ball
+	_compute_grid_cells()
 	_spawn_players()
 
 func _spawn_players() -> void:
@@ -38,14 +49,95 @@ func _spawn_players() -> void:
 			if mesh_part is MeshInstance3D:
 				var mesh: MeshInstance3D = mesh_part
 				if mesh.mesh:
-					var existing := mesh.get_active_material(0)
+					# Try active override, then ArrayMesh surface material, then PrimitiveMesh material
+					var existing: Material = mesh.get_active_material(0)
 					if existing == null:
-						existing = mesh.mesh.surface_get_material(0)
-					if existing:
-						var mat = existing.duplicate()
+						if mesh.mesh is ArrayMesh:
+							existing = (mesh.mesh as ArrayMesh).surface_get_material(0)
+						elif mesh.mesh is PrimitiveMesh:
+							existing = (mesh.mesh as PrimitiveMesh).material
+					# Duplicate if we found one; otherwise create a fresh StandardMaterial3D
+					var mat: Material = null
+					if existing != null:
+						mat = existing.duplicate()
+					else:
+						mat = StandardMaterial3D.new()
+					# Apply kit color and set override (fallback to material_override if no surfaces)
+					if mat is StandardMaterial3D:
 						mat.albedo_color = target_color
-						mesh.set_surface_override_material(0, mat)
+					var applied := false
+					if mesh.mesh is ArrayMesh:
+						var sc: int = (mesh.mesh as ArrayMesh).get_surface_count()
+						if sc > 0:
+							mesh.set_surface_override_material(0, mat)
+							applied = true
+					if not applied:
+						# Fallback for PrimitiveMesh or meshes without surfaces
+						mesh.material_override = mat
+		# Assign per-player grid bounds and staging, except rover and GK
+		if roles[i] == "goalkeeper":
+			# Keep GK near own goal; no grid constraint
+			pass
+		elif _is_rover(i):
+			# Rover: no grid bounds, start near own half center line
+			if p.has_method("set_staging_target") and grid_cells.size() == GRID_COLS * GRID_ROWS:
+				var rover_start_x := (-field_half_width_x * 0.6) if is_team_a else (field_half_width_x * 0.6)
+				p.global_transform.origin = Vector3(rover_start_x, 0.0, 0.0)
+				p.set_staging_target(Vector3(0.0, 0.0, 0.0))
+		else:
+			if p.has_method("set_grid_bounds") and grid_cells.size() == GRID_COLS * GRID_ROWS:
+				var grid_index := _grid_index_for_player(roles[i], i)
+				var cell: Dictionary = grid_cells[grid_index]
+				p.set_grid_bounds(cell["min_x"], cell["max_x"], cell["min_z"], cell["max_z"], cell["center"])
+				# Stage players at sidelines initially, then move to grid centers on kickoff
+				var center: Vector3 = cell["center"]
+				var stage_x := -field_half_width_x + 1.5 if is_team_a else field_half_width_x - 1.5
+				var stage_pos := Vector3(stage_x, 0.0, center.z)
+				if p.has_method("set_staging_target"):
+					p.set_staging_target(Vector3(center.x + (-2.0 if is_team_a else 2.0), 0.0, center.z))
+				p.global_transform.origin = stage_pos
 		players.append(p)
+
+func _compute_grid_cells() -> void:
+	grid_cells.clear()
+	var total_w := field_half_width_x * 2.0
+	var total_h := field_half_height_z * 2.0
+	var cell_w := total_w / float(GRID_COLS)
+	var cell_h := total_h / float(GRID_ROWS)
+	for r in range(GRID_ROWS):
+		for c in range(GRID_COLS):
+			var min_x := -field_half_width_x + c * cell_w
+			var max_x := min_x + cell_w
+			var min_z := -field_half_height_z + r * cell_h
+			var max_z := min_z + cell_h
+			var center := Vector3((min_x + max_x) * 0.5, 0.0, (min_z + max_z) * 0.5)
+			grid_cells.append({
+				"min_x": min_x,
+				"max_x": max_x,
+				"min_z": min_z,
+				"max_z": max_z,
+				"center": center,
+			})
+
+func _grid_index_for_player(role: String, index: int) -> int:
+	# Deterministic fixed mapping of 9 grid players to 3x3 cells (row-major)
+	# Exclude GK (index 0) and rover (default index 10)
+	var mapping: Array[int] = [
+		1, 2, 3,
+		4, 5, 6,
+		7, 8, 9
+	]
+	# Convert player index to mapping position (skip rover if needed)
+	if index == 0 or _is_rover(index):
+		return 0
+	var pos := index
+	if index > 9:
+		pos = 9
+	return (pos - 1) % (GRID_COLS * GRID_ROWS)
+
+func _is_rover(index: int) -> bool:
+	# Default rover is the last role (index 10). If needed, adapt by role name.
+	return index == ROVER_INDEX_DEFAULT
 
 func _formation_roles() -> Array:
 	# 4-4-2 with GK
@@ -101,4 +193,19 @@ func _make_ai_for_role(role: String, index: int) -> Node:
 func reset_positions(_kickoff_left: bool) -> void:
 	var positions := _formation_positions()
 	for i in players.size():
-		players[i].global_transform.origin = positions[i]
+		var p: CharacterBody3D = players[i]
+		# GK stays at formation spot near goal
+		if p.role == "goalkeeper":
+			p.global_transform.origin = positions[i]
+			continue
+		# Rover: reset to midfield in own half and no grid lock
+		if _is_rover(i):
+			var rover_x := (-field_half_width_x * 0.2) if is_team_a else (field_half_width_x * 0.2)
+			p.global_transform.origin = Vector3(rover_x, 0.0, 0.0)
+			continue
+		# Grid players: move to their grid’s center with slight side offset
+		if p.has_method("set_grid_bounds") and grid_cells.size() == GRID_COLS * GRID_ROWS:
+			var cell: Dictionary = grid_cells[_grid_index_for_player(p.role, i)]
+			var side_offset_x := -2.0 if is_team_a else 2.0
+			var center: Vector3 = cell["center"]
+			p.global_transform.origin = Vector3(center.x + side_offset_x, 0.0, center.z)

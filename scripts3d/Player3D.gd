@@ -11,11 +11,36 @@ var speed: float = 9.5
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
+# Optional per-player grid bounds (assigned by team manager)
+var grid_bounds_enabled: bool = false
+var grid_min_x: float = 0.0
+var grid_max_x: float = 0.0
+var grid_min_z: float = 0.0
+var grid_max_z: float = 0.0
+var grid_center: Vector3 = Vector3.ZERO
+
+# Staging flow: start off-grid then run to assigned grid on kickoff
+var is_staging: bool = false
+var staging_target: Vector3 = Vector3.ZERO
+var staging_timeout: float = 0.0
+var max_staging_time: float = 5.0  # Max 5 seconds in staging mode
+
 var current_grid: Vector2i
 var target_grid: Vector2i
 
+# Emergency recovery system
+var idle_time: float = 0.0
+var max_idle_time: float = 3.0
+var last_position: Vector3 = Vector3.ZERO
+var position_check_timer: float = 0.0
+
 @export var field_half_width_x: float = 60.0
 @export var field_half_height_z: float = 35.0
+
+# Recent kick intent for conflict resolution
+var last_kick_intent_dir: Vector3 = Vector3.ZERO
+var last_kick_intent_force: float = 0.0
+var last_kick_intent_time_ms: int = 0
 
 func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	ball = _ball
@@ -30,24 +55,95 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 func set_home_position(pos: Vector3) -> void:
 	home_position = pos
 
+func set_grid_bounds(min_x: float, max_x: float, min_z: float, max_z: float, center: Vector3) -> void:
+	grid_bounds_enabled = true
+	grid_min_x = min_x
+	grid_max_x = max_x
+	grid_min_z = min_z
+	grid_max_z = max_z
+	grid_center = center
+
+func set_staging_target(target: Vector3) -> void:
+	is_staging = true
+	staging_target = target
+
 func _physics_process(_delta: float) -> void:
+	# Handle staging first with timeout protection
+	if is_staging:
+		staging_timeout += _delta
+		# Force exit staging after timeout
+		if staging_timeout > max_staging_time:
+			is_staging = false
+			staging_timeout = 0.0
+			print("Player forced out of staging mode due to timeout")
+		else:
+			var to_target: Vector3 = staging_target - global_transform.origin
+			to_target.y = 0.0
+			if to_target.length() > 0.05:
+				velocity = to_target.normalized() * speed
+				move_and_slide()
+			else:
+				is_staging = false
+				staging_timeout = 0.0
+				velocity = Vector3.ZERO
+				move_and_slide()
+		return
+	# Emergency recovery system - track idle time and position
+	position_check_timer += _delta
+	if position_check_timer >= 1.0:  # Check every second
+		var current_pos = global_transform.origin
+		if current_pos.distance_to(last_position) < 0.5:  # Haven't moved much
+			idle_time += position_check_timer
+		else:
+			idle_time = 0.0
+		last_position = current_pos
+		position_check_timer = 0.0
+	
+	# Force emergency action if idle too long
+	if idle_time > max_idle_time and ball:
+		print("Emergency recovery for player - forcing ball pursuit")
+		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball.y = 0.0
+		if to_ball.length() > 0.01:
+			velocity = to_ball.normalized() * speed
+			move_and_slide()
+		idle_time = 0.0
+		return
+	
 	if ai and ai.has_method("decide"):
 		var d: Dictionary = ai.decide()
+		# Grid-aware tactics have priority when the ball is inside this player's grid
+		if _apply_grid_tactics_if_applicable():
+			# Movement/act handled by grid tactics
+			pass
 		if d.get("action", "") == "idle" and ball:
-			# Avoid idle stalls: nudge toward ball
+			# Robust ball pursuit: actively chase the ball when idle
 			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
 			to_ball.y = 0.0
 			if to_ball.length() > 0.01:
-				velocity = to_ball.normalized() * speed * 0.7
+				# Use full speed for ball pursuit instead of reduced speed
+				velocity = to_ball.normalized() * speed
 				move_and_slide()
-		else:
+		elif d.get("action", "") == "move" or d.get("action", "") == "kick":
 			_apply_decision(d)
+		else:
+			# Fallback: if no valid action, pursue the ball
+			if ball:
+				var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+				to_ball.y = 0.0
+				if to_ball.length() > 0.01:
+					velocity = to_ball.normalized() * speed * 0.8
+					move_and_slide()
 	# Keep player locked to pitch plane
 	global_position.y = 1.0
 	# Relaxed bounds to allow slight overlap near walls
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
+	# Enforce per-player grid bounds strictly (except rover/GK who won't have bounds set)
+	if grid_bounds_enabled:
+		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
+		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
@@ -100,7 +196,39 @@ func _apply_decision(decision: Dictionary) -> void:
 		var default_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
 		var forward_from_ball: Vector3 = Vector3(default_target_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
 		var dir: Vector3 = decision.get("direction", forward_from_ball)
-		ball.kick(dir, decision.get("force", 17.0))
+		var force: float = decision.get("force", 17.0)
+		# Record my intent
+		last_kick_intent_dir = dir
+		last_kick_intent_force = force
+		last_kick_intent_time_ms = Time.get_ticks_msec()
+		# Detect conflicting intent from another nearby player and resolve via fuzzy logic
+		var resolved_dir: Vector3 = dir
+		var resolved_force: float = force
+		var now_ms: int = Time.get_ticks_msec()
+		var conflict_found: bool = false
+		var my_group := "team_a" if is_team_a else "team_b"
+		var opp_group := "team_b" if is_team_a else "team_a"
+		var teammates := get_tree().get_nodes_in_group(my_group)
+		var opponents := get_tree().get_nodes_in_group(opp_group)
+		for n in teammates + opponents:
+			if n == self:
+				continue
+			if n is Player3D:
+				var p: Player3D = n
+				var near_ball: bool = p.global_transform.origin.distance_to(ball.global_transform.origin) < 1.5
+				var recent: bool = abs(now_ms - p.last_kick_intent_time_ms) <= 200
+				if near_ball and recent and p.last_kick_intent_dir != Vector3.ZERO:
+					# Consider it a conflict if directions differ significantly
+					var cosang: float = dir.normalized().dot(p.last_kick_intent_dir.normalized())
+					if cosang < 0.8:
+						var fuzzy: Node = load("res://scripts3d/Fuzzy3D.gd").new()
+						var result: Dictionary = fuzzy.resolve_kick_conflict(self, p, dir, force, ball, teammates, opponents, is_team_a)
+						resolved_dir = result.get("direction", dir)
+						resolved_force = result.get("force", force)
+						conflict_found = true
+						break
+		# Execute kick with resolved outcome
+		ball.kick(resolved_dir, resolved_force)
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
@@ -109,6 +237,114 @@ func _apply_decision(decision: Dictionary) -> void:
 	else:
 		velocity = Vector3.ZERO
 		move_and_slide()
+
+# -----------------
+# Grid tactics
+# -----------------
+func _apply_grid_tactics_if_applicable() -> bool:
+	if not grid_bounds_enabled or ball == null:
+		return false
+	var bpos: Vector3 = ball.global_transform.origin
+	if bpos.x < grid_min_x or bpos.x > grid_max_x or bpos.z < grid_min_z or bpos.z > grid_max_z:
+		return false
+	# Ball is inside my grid. Determine roles based on last touch
+	var my_group := "team_a" if is_team_a else "team_b"
+	var opp_group := "team_b" if is_team_a else "team_a"
+	var my_teammates := _players_in_my_grid(my_group)
+	var opp_players := _players_in_my_grid(opp_group)
+	var last_touch_a: bool = true
+	if ball.has_method("get"):
+		last_touch_a = bool(ball.get("last_touch_team_a"))
+	var my_team_in_possession: bool = (last_touch_a == is_team_a)
+	var my_rank_among_closest: int = _rank_among_closest(my_teammates)
+	var opp_rank_among_closest: int = _rank_among_closest(opp_players)
+	var to_ball: Vector3 = (bpos - global_transform.origin)
+	to_ball.y = 0.0
+	var dist_to_ball: float = to_ball.length()
+
+	# If in possession: let the two closest teammates in this grid chase/act
+	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
+		# Try to gain control and act: if close enough, kick toward goal; else move to ball
+		if dist_to_ball < 1.6:
+			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
+			# Slight aim toward center of goal mouth
+			var shoot_dir: Vector3 = Vector3(target_x, 0.0, clamp(ball.global_transform.origin.z, -field_half_height_z + 6.0, field_half_height_z - 6.0)) - ball.global_transform.origin
+			ball.kick(shoot_dir, 19.0)
+			if ball.has_method("set"):
+				ball.set("last_touch_team_a", is_team_a)
+			velocity = Vector3.ZERO
+			move_and_slide()
+		else:
+			velocity = to_ball.normalized() * speed
+			move_and_slide()
+		return true
+
+	# Defending behaviors when my team is not in possession: allow two closest opponents to press
+	if (not my_team_in_possession) and opp_rank_among_closest > 0 and opp_rank_among_closest <= 2:
+		# Pressing defender: intercept path by moving directly to ball
+		velocity = to_ball.normalized() * speed
+		move_and_slide()
+		return true
+	else:
+		if my_team_in_possession:
+			# Supporting attacker: move to open passing lane inside cell toward opponent goal
+			var support_x: float = (field_half_width_x * 0.5) * (1.0 if is_team_a else -1.0)
+			var support_point: Vector3 = Vector3(support_x, 0.0, clamp(bpos.z + randf_range(-4.0, 4.0), grid_min_z + 0.5, grid_max_z - 0.5))
+			var to_support: Vector3 = (support_point - global_transform.origin)
+			to_support.y = 0.0
+			if to_support.length() > 0.05:
+				velocity = to_support.normalized() * (speed * 0.8)
+				move_and_slide()
+			return true
+		else:
+			# Secondary defender: block shooting lane (stand between ball and goal)
+			var defend_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
+			var lane_mid: Vector3 = ball.global_transform.origin.lerp(Vector3(defend_target_x, 0.0, ball.global_transform.origin.z), 0.35)
+			var to_lane: Vector3 = (lane_mid - global_transform.origin)
+			to_lane.y = 0.0
+			if to_lane.length() > 0.05:
+				velocity = to_lane.normalized() * (speed * 0.9)
+				move_and_slide()
+			return true
+
+	return false
+
+func _players_in_my_grid(group_name: String) -> Array:
+	var res: Array = []
+	var nodes := get_tree().get_nodes_in_group(group_name)
+	for n in nodes:
+		if n is Player3D:
+			var p: Player3D = n
+			if not p.grid_bounds_enabled:
+				continue
+			# Check same cell bounds (approximate equality)
+			if abs(p.grid_min_x - grid_min_x) < 0.001 and abs(p.grid_max_x - grid_max_x) < 0.001 and abs(p.grid_min_z - grid_min_z) < 0.001 and abs(p.grid_max_z - grid_max_z) < 0.001:
+				res.append(p)
+	return res
+
+func _is_self_closest_to_ball(players_in_cell: Array) -> bool:
+	var best: Player3D = null
+	var best_d: float = 1e9
+	for n in players_in_cell:
+		var p: Player3D = n
+		var d: float = p.global_transform.origin.distance_to(ball.global_transform.origin)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best == self
+
+func _rank_among_closest(players_in_cell: Array) -> int:
+	var pairs: Array = []
+	for n in players_in_cell:
+		var p: Player3D = n
+		pairs.append({"p": p, "d": p.global_transform.origin.distance_to(ball.global_transform.origin)})
+	pairs.sort_custom(func(a, b): return a["d"] < b["d"])
+	var rank: int = 1
+	for item in pairs:
+		if item["p"] == self:
+			return rank
+		rank += 1
+	return 0
 
 func _world_to_grid(pos: Vector3) -> Vector2i:
 	return Vector2i(round(pos.x / grid_cell_size), round(pos.z / grid_cell_size))

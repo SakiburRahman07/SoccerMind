@@ -26,6 +26,10 @@ var _stall_timer: float = 0.0
 var stall_velocity_epsilon: float = 0.2
 var stall_seconds_threshold: float = 2.0
 
+# Game health monitoring
+var health_check_timer: float = 0.0
+var health_check_interval: float = 10.0  # Check every 10 seconds
+
 func _ready() -> void:
 	field = get_node_or_null("Field3D") as Node3D
 	if field == null:
@@ -46,6 +50,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			var env := field.get_node_or_null("EnvironmentController")
 			if env and env.has_method("toggle_day_night"):
 				env.call("toggle_day_night")
+		elif event.keycode == KEY_R:
+			# Manual restart for testing
+			print("Manual restart triggered")
+			_reset_kickoff()
 
 func _process(delta: float) -> void:
 	# Detect out-of-bounds for throw-in / corner / goal kick
@@ -57,6 +65,7 @@ func _process(delta: float) -> void:
 	elif abs(pos.z) > goalline_z and not _restart_in_progress:
 		_handle_corner_or_goal_kick(pos)
 	_detect_and_recover_from_stall(delta)
+	_perform_health_check(delta)
 
 func _nearest_player(for_team_a: bool, near_pos: Vector3) -> Node:
 	var group_name := "team_a" if for_team_a else "team_b"
@@ -85,11 +94,13 @@ func _handle_throw_in(pos: Vector3) -> void:
 		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
 			var is_a: bool = bool(taker.get("is_team_a"))
 			ball.set("last_touch_team_a", is_a)
+	else:
+		# Safety: no taker found → ensure nobody remains frozen
+		_unfreeze_all()
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	# Determine if corner or goal kick based on last touch team and which goal line exited
 	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
-	var exited_left_goal_line: bool = pos.z > 0.0 or pos.z < 0.0 # any goalline
 	var is_left_side: bool = pos.x < 0.0
 	# Attacking team is opposite of defending goal. If last touch was attacker, it's goal kick; else corner
 	var defending_team_a_for_this_end: bool = false if pos.z > 0.0 else true # top end defended by Team B, bottom by Team A (approx)
@@ -109,6 +120,9 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_schedule_restart_kick(drive, 14.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a)
+		else:
+			# Safety: ensure game resumes even if no taker was found
+			_unfreeze_all()
 	else:
 		# Corner for attacking team at nearest corner arc
 		var taker_is_team_a_c: bool = not defending_team_a_for_this_end
@@ -123,6 +137,9 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_schedule_restart_kick(into_box, 12.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a_c)
+		else:
+			# Safety: ensure game resumes even if no taker was found
+			_unfreeze_all()
 
 func _begin_restart(taker: Node) -> void:
 	_restart_in_progress = true
@@ -136,6 +153,7 @@ func _begin_restart(taker: Node) -> void:
 func _schedule_restart_kick(dir: Vector3, force: float) -> void:
 	# small delay to make restart readable
 	_restart_timer.wait_time = 0.6
+	var started_at := Time.get_ticks_msec()
 	_restart_timer.timeout.connect(func():
 		ball.kick(dir, force)
 		_unfreeze_all()
@@ -143,6 +161,15 @@ func _schedule_restart_kick(dir: Vector3, force: float) -> void:
 		_restart_taker = null
 		, CONNECT_ONE_SHOT)
 	_restart_timer.start()
+	# Watchdog: if somehow not completed within 2 seconds, unfreeze anyway
+	call_deferred("_ensure_restart_completed", started_at)
+
+func _ensure_restart_completed(started_at: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	if _restart_in_progress:
+		_unfreeze_all()
+		_restart_in_progress = false
+		_restart_taker = null
 
 func _freeze_all_except(taker: Node) -> void:
 	_frozen_players.clear()
@@ -157,10 +184,21 @@ func _freeze_all_except(taker: Node) -> void:
 				child.set_physics_process(false)
 
 func _unfreeze_all() -> void:
-	for p in _frozen_players:
-		if is_instance_valid(p):
-			p.set_physics_process(true)
+	# Robust unfreezing - ensure ALL players are unfrozen, not just the tracked ones
+	for team in [team_a, team_b]:
+		if not team:
+			continue
+		for child in team.get_children():
+			if child is Player3D:
+				child.set_physics_process(true)
 	_frozen_players.clear()
+	
+	# Emergency unfreezing: get all players in groups too
+	var all_players_a = get_tree().get_nodes_in_group("team_a")
+	var all_players_b = get_tree().get_nodes_in_group("team_b")
+	for p in all_players_a + all_players_b:
+		if p is Player3D:
+			p.set_physics_process(true)
 
 func _setup_goals() -> void:
 	# Flip: Team B defends left; Team A defends right
@@ -190,6 +228,9 @@ func _reset_kickoff() -> void:
 	ball.global_transform.origin = Vector3(0, 1, 0)
 	ball.velocity = Vector3.ZERO
 	if team_a and team_b:
+		# Re-configure teams to ensure ball references are maintained
+		team_a.call_deferred("configure_team", true, ball)
+		team_b.call_deferred("configure_team", false, ball)
 		team_a.call_deferred("reset_positions", true)
 		team_b.call_deferred("reset_positions", false)
 		# Kickoff: the team that conceded restarts
@@ -232,22 +273,101 @@ func _update_score_ui() -> void:
 		score_label.text = "A %d - %d B" % [score_a, score_b]
 
 func _detect_and_recover_from_stall(delta: float) -> void:
+	if _restart_in_progress:
+		_stall_timer = 0.0
+		return
+		
 	var ball_still: bool = ball and ball.velocity.length() <= stall_velocity_epsilon
 	var players_still: bool = true
+	var active_player_count: int = 0
+	
 	for team in [team_a, team_b]:
 		if not team:
 			continue
 		for child in team.get_children():
 			if child is Player3D:
+				active_player_count += 1
 				if child.velocity.length() > stall_velocity_epsilon:
 					players_still = false
 					break
 		if not players_still:
 			break
-	if ball_still and players_still:
+	
+	# Only trigger stall if we have players and everything is truly still
+	if ball_still and players_still and active_player_count > 0:
 		_stall_timer += delta
 		if _stall_timer >= stall_seconds_threshold:
-			_reset_kickoff()
+			print("Stall detected - nudging ball and ensuring players are active")
+			
+			# First, ensure all players are unfrozen
+			_unfreeze_all()
+			
+			# Nudge ball toward center
+			var toward_center: Vector3 = (Vector3(0, 1.0, 0) - ball.global_transform.origin)
+			toward_center.y = 0.3
+			ball.kick(toward_center.normalized(), 6.0)
+			
+			# Force reset player staging states
+			for team in [team_a, team_b]:
+				if not team:
+					continue
+				for child in team.get_children():
+					if child is Player3D:
+						if child.has_method("set") and child.get("is_staging"):
+							child.set("is_staging", false)
+			
 			_stall_timer = 0.0
 	else:
 		_stall_timer = 0.0
+
+func _perform_health_check(delta: float) -> void:
+	health_check_timer += delta
+	if health_check_timer >= health_check_interval:
+		health_check_timer = 0.0
+		
+		# Check if players are still active and have proper references
+		var inactive_players: int = 0
+		var total_players: int = 0
+		
+		for team in [team_a, team_b]:
+			if not team:
+				continue
+			for child in team.get_children():
+				if child is Player3D:
+					total_players += 1
+					# Check if player has ball reference
+					if not child.ball:
+						child.ball = ball
+						print("Health check: Restored ball reference for player")
+					# Check if player has AI
+					if not child.ai:
+						print("Health check: Player missing AI - attempting to fix")
+						# Try to restore AI
+						var role = child.role if child.has_method("get") else "midfielder"
+						var new_ai = _create_ai_for_role(role, total_players)
+						if new_ai:
+							child.ai = new_ai
+							child.ai.set("player", child) 
+							child.ai.set("ball", ball)
+							child.add_child(new_ai)
+					# Check if physics is enabled
+					if not child.is_physics_processing():
+						child.set_physics_process(true)
+						print("Health check: Re-enabled physics for player")
+						inactive_players += 1
+		
+		if inactive_players > 0:
+			print("Health check: Fixed ", inactive_players, " inactive players out of ", total_players)
+
+func _create_ai_for_role(role: String, index: int) -> Node:
+	match role:
+		"goalkeeper":
+			return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
+		"defender":
+			return load("res://scripts3d/ai/Defender3D.gd").new()
+		"midfielder":
+			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
+		"striker":
+			return load("res://scripts3d/ai/Striker3D.gd").new()
+		_:
+			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()

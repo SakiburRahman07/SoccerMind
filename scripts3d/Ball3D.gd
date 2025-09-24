@@ -54,5 +54,3 @@ func _nearest_player() -> Node:
 			best_d = d
 			best = p
 	return best
-
-
