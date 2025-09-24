@@ -120,16 +120,20 @@ func _compute_grid_cells() -> void:
 			})
 
 func _grid_index_for_player(role: String, index: int) -> int:
-	# Map exactly 9 non-GK, non-rover players to the 3x3 grid covering full field
-	# Use fixed row-major order 0..8 and assign by sequence among eligible players
-	var eligible_indices: Array[int] = []
-	for i in range(1, 11): # exclude GK at 0
-		if not _is_rover(i):
-			eligible_indices.append(i)
-	var pos_in_eligible := eligible_indices.find(index)
-	if pos_in_eligible == -1:
-		return 0 # fallback
-	return pos_in_eligible % (GRID_COLS * GRID_ROWS)
+	# Deterministic fixed mapping of 9 grid players to 3x3 cells (row-major)
+	# Exclude GK (index 0) and rover (default index 10)
+	var mapping: Array[int] = [
+		1, 2, 3,
+		4, 5, 6,
+		7, 8, 9
+	]
+	# Convert player index to mapping position (skip rover if needed)
+	if index == 0 or _is_rover(index):
+		return 0
+	var pos := index
+	if index > 9:
+		pos = 9
+	return (pos - 1) % (GRID_COLS * GRID_ROWS)
 
 func _is_rover(index: int) -> bool:
 	# Default rover is the last role (index 10). If needed, adapt by role name.

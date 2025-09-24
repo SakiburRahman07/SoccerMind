@@ -135,13 +135,10 @@ func _physics_process(_delta: float) -> void:
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
-	# Soft grid bounds - only apply when not chasing ball actively
-	if grid_bounds_enabled and ball:
-		var dist_to_ball = global_transform.origin.distance_to(ball.global_transform.origin)
-		# Only enforce grid bounds if ball is far away (not actively pursuing)
-		if dist_to_ball > 10.0:
-			clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
-			clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
+	# Enforce per-player grid bounds strictly (except rover/GK who won't have bounds set)
+	if grid_bounds_enabled:
+		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
+		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
