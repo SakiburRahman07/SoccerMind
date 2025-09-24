@@ -29,7 +29,16 @@ func _pick_shot() -> Dictionary:
 		if score > best_score:
 			best_score = score
 			best_dir = dir
-	return {"action": "kick", "force": 24.0, "direction": best_dir}
+	# Scale force slightly with how forward the shot is and nearby pressure
+	var forwardness: float = clamp(abs(best_dir.x) / 60.0, 0.0, 1.0)
+	var min_opp: float = 9999.0
+	for o in opps:
+		var d: float = o.global_transform.origin.distance_to(player.global_transform.origin)
+		if d < min_opp:
+			min_opp = d
+	var pressure: float = clamp(1.0 - min_opp / 10.0, 0.0, 1.0)
+	var force: float = clamp(22.0 + forwardness * 4.0 + pressure * 4.0, 18.0, 30.0)
+	return {"action": "kick", "force": force, "direction": best_dir}
 
 func _shot_score(dir: Vector3, opps: Array) -> float:
 	var adv: float = abs(dir.x)

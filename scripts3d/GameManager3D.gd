@@ -74,6 +74,10 @@ func _handle_throw_in(pos: Vector3) -> void:
 		var inward_x := -2.0 if ball.global_transform.origin.x > 0.0 else 2.0
 		var throw_dir := Vector3(inward_x, 6.0, 0.0)
 		ball.kick(throw_dir, 10.0)
+		# Record restart touch
+		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
+			var is_a: bool = bool(taker.get("is_team_a"))
+			ball.set("last_touch_team_a", is_a)
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	var _for_team_a: bool = not bool(ball.get("last_touch_team_a"))
@@ -83,6 +87,9 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	ball.velocity = Vector3.ZERO
 	# Corner: lob toward box
 	var into_box := Vector3(5.0 if is_left else -5.0, 7.0, -6.0)
+	# Record restart touch to team taking the corner/goal kick
+	if ball.has_method("set"):
+		ball.set("last_touch_team_a", _for_team_a)
 	ball.kick(into_box, 12.0)
 
 func _setup_goals() -> void:

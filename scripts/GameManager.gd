@@ -180,7 +180,7 @@ func _detect_and_recover_from_stall(delta: float) -> void:
 		if not team:
 			continue
 		for child in team.get_children():
-			if child is Player:
+			if child is Player3D:
 				if child.velocity.length() > stall_velocity_epsilon:
 					players_still = false
 					break
