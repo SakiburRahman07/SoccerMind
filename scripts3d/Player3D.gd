@@ -22,9 +22,17 @@ var grid_center: Vector3 = Vector3.ZERO
 # Staging flow: start off-grid then run to assigned grid on kickoff
 var is_staging: bool = false
 var staging_target: Vector3 = Vector3.ZERO
+var staging_timeout: float = 0.0
+var max_staging_time: float = 5.0  # Max 5 seconds in staging mode
 
 var current_grid: Vector2i
 var target_grid: Vector2i
+
+# Emergency recovery system
+var idle_time: float = 0.0
+var max_idle_time: float = 3.0
+var last_position: Vector3 = Vector3.ZERO
+var position_check_timer: float = 0.0
 
 @export var field_half_width_x: float = 60.0
 @export var field_half_height_z: float = 35.0
@@ -55,18 +63,48 @@ func set_staging_target(target: Vector3) -> void:
 	staging_target = target
 
 func _physics_process(_delta: float) -> void:
-	# Handle staging first
+	# Handle staging first with timeout protection
 	if is_staging:
-		var to_target: Vector3 = staging_target - global_transform.origin
-		to_target.y = 0.0
-		if to_target.length() > 0.05:
-			velocity = to_target.normalized() * speed
-			move_and_slide()
-		else:
+		staging_timeout += _delta
+		# Force exit staging after timeout
+		if staging_timeout > max_staging_time:
 			is_staging = false
-			velocity = Vector3.ZERO
-			move_and_slide()
+			staging_timeout = 0.0
+			print("Player forced out of staging mode due to timeout")
+		else:
+			var to_target: Vector3 = staging_target - global_transform.origin
+			to_target.y = 0.0
+			if to_target.length() > 0.05:
+				velocity = to_target.normalized() * speed
+				move_and_slide()
+			else:
+				is_staging = false
+				staging_timeout = 0.0
+				velocity = Vector3.ZERO
+				move_and_slide()
 		return
+	# Emergency recovery system - track idle time and position
+	position_check_timer += _delta
+	if position_check_timer >= 1.0:  # Check every second
+		var current_pos = global_transform.origin
+		if current_pos.distance_to(last_position) < 0.5:  # Haven't moved much
+			idle_time += position_check_timer
+		else:
+			idle_time = 0.0
+		last_position = current_pos
+		position_check_timer = 0.0
+	
+	# Force emergency action if idle too long
+	if idle_time > max_idle_time and ball:
+		print("Emergency recovery for player - forcing ball pursuit")
+		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball.y = 0.0
+		if to_ball.length() > 0.01:
+			velocity = to_ball.normalized() * speed
+			move_and_slide()
+		idle_time = 0.0
+		return
+	
 	if ai and ai.has_method("decide"):
 		var d: Dictionary = ai.decide()
 		# Grid-aware tactics have priority when the ball is inside this player's grid
@@ -81,18 +119,29 @@ func _physics_process(_delta: float) -> void:
 				# Use full speed for ball pursuit instead of reduced speed
 				velocity = to_ball.normalized() * speed
 				move_and_slide()
-		else:
+		elif d.get("action", "") == "move" or d.get("action", "") == "kick":
 			_apply_decision(d)
+		else:
+			# Fallback: if no valid action, pursue the ball
+			if ball:
+				var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
+				to_ball.y = 0.0
+				if to_ball.length() > 0.01:
+					velocity = to_ball.normalized() * speed * 0.8
+					move_and_slide()
 	# Keep player locked to pitch plane
 	global_position.y = 1.0
 	# Relaxed bounds to allow slight overlap near walls
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
-	# Additional clamp to per-player grid if enabled
-	if grid_bounds_enabled:
-		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
-		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
+	# Soft grid bounds - only apply when not chasing ball actively
+	if grid_bounds_enabled and ball:
+		var dist_to_ball = global_transform.origin.distance_to(ball.global_transform.origin)
+		# Only enforce grid bounds if ball is far away (not actively pursuing)
+		if dist_to_ball > 10.0:
+			clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
+			clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
