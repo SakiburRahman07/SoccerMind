@@ -37,6 +37,11 @@ var position_check_timer: float = 0.0
 @export var field_half_width_x: float = 60.0
 @export var field_half_height_z: float = 35.0
 
+# Recent kick intent for conflict resolution
+var last_kick_intent_dir: Vector3 = Vector3.ZERO
+var last_kick_intent_force: float = 0.0
+var last_kick_intent_time_ms: int = 0
+
 func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	ball = _ball
 	ai = _ai
@@ -191,7 +196,39 @@ func _apply_decision(decision: Dictionary) -> void:
 		var default_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
 		var forward_from_ball: Vector3 = Vector3(default_target_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
 		var dir: Vector3 = decision.get("direction", forward_from_ball)
-		ball.kick(dir, decision.get("force", 17.0))
+		var force: float = decision.get("force", 17.0)
+		# Record my intent
+		last_kick_intent_dir = dir
+		last_kick_intent_force = force
+		last_kick_intent_time_ms = Time.get_ticks_msec()
+		# Detect conflicting intent from another nearby player and resolve via fuzzy logic
+		var resolved_dir: Vector3 = dir
+		var resolved_force: float = force
+		var now_ms: int = Time.get_ticks_msec()
+		var conflict_found: bool = false
+		var my_group := "team_a" if is_team_a else "team_b"
+		var opp_group := "team_b" if is_team_a else "team_a"
+		var teammates := get_tree().get_nodes_in_group(my_group)
+		var opponents := get_tree().get_nodes_in_group(opp_group)
+		for n in teammates + opponents:
+			if n == self:
+				continue
+			if n is Player3D:
+				var p: Player3D = n
+				var near_ball: bool = p.global_transform.origin.distance_to(ball.global_transform.origin) < 1.5
+				var recent: bool = abs(now_ms - p.last_kick_intent_time_ms) <= 200
+				if near_ball and recent and p.last_kick_intent_dir != Vector3.ZERO:
+					# Consider it a conflict if directions differ significantly
+					var cosang: float = dir.normalized().dot(p.last_kick_intent_dir.normalized())
+					if cosang < 0.8:
+						var fuzzy: Node = load("res://scripts3d/Fuzzy3D.gd").new()
+						var result: Dictionary = fuzzy.resolve_kick_conflict(self, p, dir, force, ball, teammates, opponents, is_team_a)
+						resolved_dir = result.get("direction", dir)
+						resolved_force = result.get("force", force)
+						conflict_found = true
+						break
+		# Execute kick with resolved outcome
+		ball.kick(resolved_dir, resolved_force)
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
@@ -219,13 +256,14 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	if ball.has_method("get"):
 		last_touch_a = bool(ball.get("last_touch_team_a"))
 	var my_team_in_possession: bool = (last_touch_a == is_team_a)
-	var i_am_closest_on_my_team := _is_self_closest_to_ball(my_teammates)
-	var i_am_closest_on_opp := _is_self_closest_to_ball(opp_players)
+	var my_rank_among_closest: int = _rank_among_closest(my_teammates)
+	var opp_rank_among_closest: int = _rank_among_closest(opp_players)
 	var to_ball: Vector3 = (bpos - global_transform.origin)
 	to_ball.y = 0.0
 	var dist_to_ball: float = to_ball.length()
 
-	if my_team_in_possession and i_am_closest_on_my_team:
+	# If in possession: let the two closest teammates in this grid chase/act
+	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
 		if dist_to_ball < 1.6:
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
@@ -241,9 +279,9 @@ func _apply_grid_tactics_if_applicable() -> bool:
 			move_and_slide()
 		return true
 
-	# Defending behaviors when my team is not in possession
-	if (not my_team_in_possession) and i_am_closest_on_opp:
-		# Closest defender: intercept path by moving directly to ball
+	# Defending behaviors when my team is not in possession: allow two closest opponents to press
+	if (not my_team_in_possession) and opp_rank_among_closest > 0 and opp_rank_among_closest <= 2:
+		# Pressing defender: intercept path by moving directly to ball
 		velocity = to_ball.normalized() * speed
 		move_and_slide()
 		return true
@@ -294,6 +332,19 @@ func _is_self_closest_to_ball(players_in_cell: Array) -> bool:
 			best_d = d
 			best = p
 	return best == self
+
+func _rank_among_closest(players_in_cell: Array) -> int:
+	var pairs: Array = []
+	for n in players_in_cell:
+		var p: Player3D = n
+		pairs.append({"p": p, "d": p.global_transform.origin.distance_to(ball.global_transform.origin)})
+	pairs.sort_custom(func(a, b): return a["d"] < b["d"])
+	var rank: int = 1
+	for item in pairs:
+		if item["p"] == self:
+			return rank
+		rank += 1
+	return 0
 
 func _world_to_grid(pos: Vector3) -> Vector2i:
 	return Vector2i(round(pos.x / grid_cell_size), round(pos.z / grid_cell_size))

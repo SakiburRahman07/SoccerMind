@@ -94,6 +94,9 @@ func _handle_throw_in(pos: Vector3) -> void:
 		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
 			var is_a: bool = bool(taker.get("is_team_a"))
 			ball.set("last_touch_team_a", is_a)
+	else:
+		# Safety: no taker found → ensure nobody remains frozen
+		_unfreeze_all()
 
 func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	# Determine if corner or goal kick based on last touch team and which goal line exited
@@ -117,6 +120,9 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_schedule_restart_kick(drive, 14.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a)
+		else:
+			# Safety: ensure game resumes even if no taker was found
+			_unfreeze_all()
 	else:
 		# Corner for attacking team at nearest corner arc
 		var taker_is_team_a_c: bool = not defending_team_a_for_this_end
@@ -131,6 +137,9 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_schedule_restart_kick(into_box, 12.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a_c)
+		else:
+			# Safety: ensure game resumes even if no taker was found
+			_unfreeze_all()
 
 func _begin_restart(taker: Node) -> void:
 	_restart_in_progress = true
@@ -144,6 +153,7 @@ func _begin_restart(taker: Node) -> void:
 func _schedule_restart_kick(dir: Vector3, force: float) -> void:
 	# small delay to make restart readable
 	_restart_timer.wait_time = 0.6
+	var started_at := Time.get_ticks_msec()
 	_restart_timer.timeout.connect(func():
 		ball.kick(dir, force)
 		_unfreeze_all()
@@ -151,6 +161,15 @@ func _schedule_restart_kick(dir: Vector3, force: float) -> void:
 		_restart_taker = null
 		, CONNECT_ONE_SHOT)
 	_restart_timer.start()
+	# Watchdog: if somehow not completed within 2 seconds, unfreeze anyway
+	call_deferred("_ensure_restart_completed", started_at)
+
+func _ensure_restart_completed(started_at: int) -> void:
+	await get_tree().create_timer(2.0).timeout
+	if _restart_in_progress:
+		_unfreeze_all()
+		_restart_in_progress = false
+		_restart_taker = null
 
 func _freeze_all_except(taker: Node) -> void:
 	_frozen_players.clear()
