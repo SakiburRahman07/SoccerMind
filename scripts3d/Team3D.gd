@@ -54,7 +54,8 @@ func _formation_roles() -> Array:
 	]
 
 func _formation_positions() -> Array:
-	var team_dir := 1.0 if is_team_a else -1.0
+	# Flip halves: Team A now starts on +X, Team B on -X
+	var team_dir := -1.0 if is_team_a else 1.0
 	var base_x := -45.0 * team_dir
 	# GK
 	var positions: Array = [ Vector3(base_x, 0, 0) ]

@@ -82,7 +82,10 @@ func _apply_decision(decision: Dictionary, _delta: float) -> void:
 		velocity = dir.normalized() * speed
 		move_and_slide()
 	elif action == "kick":
-		var dir_k: Vector2 = decision.get("direction", (ball.global_position - global_position))
+		# Default to forward toward opponent goal if direction not provided
+		var default_target_x: float = (FIELD_BOUNDS_MAX.x - 20.0) if is_team_a else (FIELD_BOUNDS_MIN.x + 20.0)
+		var forward_from_ball: Vector2 = Vector2(default_target_x, ball.global_position.y) - ball.global_position
+		var dir_k: Vector2 = decision.get("direction", forward_from_ball)
 		ball.kick(dir_k, decision.get("force", 300.0))
 		velocity = Vector2.ZERO
 		move_and_slide()

@@ -29,13 +29,13 @@ func _spawn_players() -> void:
 		players.append(p)
 
 func _default_positions() -> Array:
-	var _offset_x: int = -200 if is_team_a else 200
-	var side: Vector2 = Vector2(400, 360) if is_team_a else Vector2(880, 360)
+	# Flip sides: Team A now on the right, Team B on the left
+	var side: Vector2 = Vector2(880, 360) if is_team_a else Vector2(400, 360)
 	return [
-		side + Vector2(-300, 0),
-		side + Vector2(-200, 0),
-		side + Vector2(-100, -80),
-		side + Vector2(-100, 80),
+		side + Vector2(300, 0),
+		side + Vector2(200, 0),
+		side + Vector2(100, -80),
+		side + Vector2(100, 80),
 		side + Vector2(0, 0)
 	]
 

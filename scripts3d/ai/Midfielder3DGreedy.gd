@@ -17,7 +17,7 @@ func decide() -> Dictionary:
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
 		var fuzzy: Node = load("res://scripts3d/Fuzzy3D.gd").new()
 		var pick: Dictionary = fuzzy.pick_teammate_and_style(player, mates, opps, player.is_team_a)
-		var target: Vector3 = pick.get("target", player.global_transform.origin + Vector3((1.0 if player.is_team_a else -1.0) * 8.0, 0, 0))
+		var target: Vector3 = pick.get("target", player.global_transform.origin + Vector3((-1.0 if player.is_team_a else 1.0) * 8.0, 0, 0))
 		var lob: bool = pick.get("lob", false)
 		var dir_pass: Vector3 = (target - ball.global_transform.origin)
 		if lob:

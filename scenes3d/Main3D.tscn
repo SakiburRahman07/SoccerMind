@@ -3,7 +3,11 @@
 [ext_resource type="PackedScene" path="res://scenes3d/Field3D.tscn" id="1_field"]
 [ext_resource type="Script" path="res://scripts3d/GameManager3D.gd" id="2_gm3d"]
 [sub_resource type="LabelSettings" id="1_ls"]
-font_size = 28
+font_size = 36
+outline_size = 4
+outline_color = Color(0, 0, 0, 0.7)
+shadow_size = 2
+shadow_color = Color(0, 0, 0, 0.45)
 
 [node name="Main3D" type="Node3D"]
 script = ExtResource("2_gm3d")
@@ -13,8 +17,12 @@ script = ExtResource("2_gm3d")
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="Score" type="Label" parent="CanvasLayer"]
-offset_left = 20.0
-offset_top = 20.0
+offset_left = 0.0
+offset_top = 10.0
+offset_right = 1280.0
+offset_bottom = 60.0
+horizontal_alignment = 1
+vertical_alignment = 1
 text = "A 0 - 0 B"
 label_settings = SubResource("1_ls")
 

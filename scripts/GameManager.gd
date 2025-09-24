@@ -35,7 +35,7 @@ var message_label: Label
 var kickoff_timer: Timer
 
 func _ready() -> void:
-	_add_to_group("Game")
+	add_to_group("Game")
 	_setup_hud()
 	time_left_seconds = match_duration_seconds
 	is_match_over = false
@@ -44,6 +44,7 @@ func _ready() -> void:
 	_reset_kickoff()
 
 func _setup_goals() -> void:
+	# Flip: Team B defends left; Team A defends right
 	goal_left.set_meta("team", "B")
 	goal_right.set_meta("team", "A")
 	goal_left.body_entered.connect(func(b): _on_goal_entered(b))

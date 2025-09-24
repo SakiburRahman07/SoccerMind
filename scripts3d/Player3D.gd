@@ -84,7 +84,9 @@ func _apply_decision(decision: Dictionary) -> void:
 			move_and_slide()
 	elif action == "kick":
 		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-		var dir: Vector3 = decision.get("direction", to_ball)
+		var default_target_x: float = (field_half_width_x - 2.0) if is_team_a else -(field_half_width_x - 2.0)
+		var forward_from_ball: Vector3 = Vector3(default_target_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
+		var dir: Vector3 = decision.get("direction", forward_from_ball)
 		ball.kick(dir, decision.get("force", 15.0))
 		# Record last touch team for restarts
 		if ball.has_method("set"):

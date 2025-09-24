@@ -19,7 +19,8 @@ func pick_teammate_and_style(player: Node, teammates: Array, opponents: Array, i
 		if t == player:
 			continue
 		var to_t: Vector3 = t.global_transform.origin - player.global_transform.origin
-		var forward_sign: float = 1.0 if is_team_a else -1.0
+		# Team A attacks toward -X (left), Team B toward +X (right)
+		var forward_sign: float = -1.0 if is_team_a else 1.0
 		var ahead: bool = (to_t.x * forward_sign) > 0.0
 		var dist: float = to_t.length()
 		if dist < 1.0:

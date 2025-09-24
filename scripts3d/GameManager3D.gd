@@ -34,6 +34,13 @@ func _ready() -> void:
 	_reset_kickoff()
 	set_process(true)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_N:
+			var env := field.get_node_or_null("EnvironmentController")
+			if env and env.has_method("toggle_day_night"):
+				env.call("toggle_day_night")
+
 func _process(delta: float) -> void:
 	# Detect out-of-bounds for throw-in / corner / goal kick
 	if ball == null:
@@ -79,6 +86,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 	ball.kick(into_box, 12.0)
 
 func _setup_goals() -> void:
+	# Flip: Team B defends left; Team A defends right
 	if goal_left:
 		goal_left.set_meta("team", "B")
 		goal_left.body_entered.connect(func(b): _on_goal_entered(b))

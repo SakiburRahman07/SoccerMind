@@ -2,11 +2,14 @@
 
 [ext_resource type="PackedScene" path="res://scenes3d/Ball3D.tscn" id="1_ball"]
 [ext_resource type="PackedScene" path="res://scenes3d/Goal3D.tscn" id="2_goal"]
+[ext_resource type="Script" path="res://scripts3d/FieldEnvironment.gd" id="3_env"]
 
 [sub_resource type="StandardMaterial3D" id="1"]
-albedo_color = Color(0.12, 0.55, 0.18, 1)
-roughness = 0.8
-metallic = 0.0
+albedo_color = Color(0.1, 0.5, 0.16, 1)
+roughness = 0.9
+metallic = 0.02
+clearcoat = 0.08
+clearcoat_roughness = 0.7
 
 [sub_resource type="BoxMesh" id="2"]
 size = Vector3(120, 1, 70)
@@ -51,6 +54,9 @@ size = Vector3(120, 2, 1)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(-45, 30, 0)
+shadow_enabled = true
+shadow_bias = 0.05
+shadow_normal_bias = 0.8
 
 [node name="Camera3D" type="Camera3D" parent="."]
 position = Vector3(0, 60, 80)
@@ -114,5 +120,8 @@ rotation_degrees = Vector3(0, 180, 0)
 
 [node name="Ball" parent="." instance=ExtResource("1_ball")] 
 position = Vector3(0, 1, 0)
+
+[node name="EnvironmentController" type="Node3D" parent="."]
+script = ExtResource("3_env")
 
 
