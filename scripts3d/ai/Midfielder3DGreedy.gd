@@ -15,9 +15,27 @@ func decide() -> Dictionary:
 	var home: Vector3 = player.home_position if player and player.has_method("set_home_position") else player.global_transform.origin
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
 	var desire: Vector3 = to_ball
-	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.3
+	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.4  # BALANCED formation constraint
 	var dir: Vector3 = (desire + keep_shape).normalized()
-	if to_ball.length() < 2.5:
+	
+	# BALANCED action range for midfielders
+	if to_ball.length() < 4.0:  # REDUCED to balanced range
+		# Check for shooting opportunity first
+		var opponent_goal_x: float = -58.0 if player.is_team_a else 58.0
+		var distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
+		
+		# BALANCED shooting - only shoot from good positions
+		if distance_to_goal < 20.0:  # REDUCED to reasonable shooting range
+			var to_goal: Vector3 = Vector3(opponent_goal_x, 0, 0) - ball.global_transform.origin
+			var angle_cos: float = to_ball.normalized().dot(to_goal.normalized())
+			
+			# BALANCED angle requirement - need good angle to goal
+			if angle_cos > 0.6:  # INCREASED for better shot selection
+				var shot_dir: Vector3 = to_goal
+				shot_dir.y = 1.0  # REDUCED lift for more accuracy
+				var force: float = 16.0  # REDUCED power for balance
+				return {"action": "kick", "force": force, "direction": shot_dir}
+		
 		# Fuzzy passing to best teammate with fuzzy force selection
 		var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
@@ -36,6 +54,6 @@ func decide() -> Dictionary:
 		var distance: float = dir_pass.length()
 		var force: float = fuzzy.decide_pass_force(distance, pressure)
 		if lob:
-			dir_pass.y = 6.0
+			dir_pass.y = 3.0  # REDUCED lob height for balance
 		return {"action": "kick", "force": force, "direction": dir_pass}
 	return {"action": "move", "direction": dir}

@@ -7,9 +7,24 @@ class_name Player3D
 @export var grid_cell_size: float = 4.0
 
 var ball: CharacterBody3D
-var speed: float = 9.5
+var speed: float = 8.0  # INCREASED from 9.5 for faster movement
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
+
+# Animation system variables
+@onready var animation_player: AnimationPlayer = $AnimationPlayer
+var current_animation: String = "idle"
+var animation_blend_time: float = 0.15
+var kick_animation_playing: bool = false
+var celebration_animation_playing: bool = false
+var dribbling_mode: bool = false
+var last_ball_distance: float = 999.0
+var close_to_ball_time: float = 0.0
+
+# Attack mode for forward players - allows breaking grid constraints
+var attack_mode: bool = false
+var attack_mode_timer: float = 0.0
+var max_attack_mode_time: float = 15.0  # INCREASED for longer attacks
 
 # Optional per-player grid bounds (assigned by team manager)
 var grid_bounds_enabled: bool = false
@@ -51,6 +66,8 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	# Initialize grid at current position
 	current_grid = _world_to_grid(global_transform.origin)
 	target_grid = current_grid
+	# Setup team appearance
+	setup_team_appearance()
 
 func set_home_position(pos: Vector3) -> void:
 	home_position = pos
@@ -68,6 +85,16 @@ func set_staging_target(target: Vector3) -> void:
 	staging_target = target
 
 func _physics_process(_delta: float) -> void:
+	# Update attack mode timer
+	if attack_mode:
+		attack_mode_timer += _delta
+		if attack_mode_timer > max_attack_mode_time:
+			attack_mode = false
+			attack_mode_timer = 0.0
+	
+	# Check if forward players should enter attack mode
+	_check_attack_mode()
+	
 	# Handle staging first with timeout protection
 	if is_staging:
 		staging_timeout += _delta
@@ -134,16 +161,22 @@ func _physics_process(_delta: float) -> void:
 				if to_ball.length() > 0.01:
 					velocity = to_ball.normalized() * speed * 0.8
 					move_and_slide()
-	# Keep player locked to pitch plane
-	global_position.y = 1.0
+	# Update animations based on player state
+	update_animation()
+	
+	# Keep player locked to pitch plane (adjusted for taller players)
+	global_position.y = 1.2
 	# Relaxed bounds to allow slight overlap near walls
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
-	# Enforce per-player grid bounds strictly (except rover/GK who won't have bounds set)
-	if grid_bounds_enabled:
+	
+	# CRITICAL FIX: Much more flexible grid constraints for goal scoring
+	# Allow ALL players to break grid when very close to opponent goal
+	if grid_bounds_enabled and not _should_ignore_grid_for_goal():
 		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
 		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
+	
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
@@ -166,13 +199,13 @@ func _apply_decision(decision: Dictionary) -> void:
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
 		var my_group_name := "team_a" if is_team_a else "team_b"
 		var my_team_rank: int = _team_rank_to_ball(my_group_name)
-		var direct_chase: bool = (to_ball.length() < 6.0) or (to_ball.length() < 20.0 and my_team_rank > 0 and my_team_rank <= 3)
+		var direct_chase: bool = (to_ball.length() < 8.0) or (to_ball.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
 		if direct_chase:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
 			var mult: float = 1.0
-			if to_ball.length() < 8.0:
-				mult = 1.12
+			if to_ball.length() < 12.0:  # INCREASED from 8.0
+				mult = 1.25  # INCREASED speed multiplier
 			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
@@ -235,6 +268,8 @@ func _apply_decision(decision: Dictionary) -> void:
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
+		# Trigger kick animation
+		play_kick_animation()
 		velocity = Vector3.ZERO
 		move_and_slide()
 	else:
@@ -268,7 +303,8 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	# If in possession: let the two closest teammates in this grid chase/act
 	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
-		if dist_to_ball < 1.6:
+		# INCREASED shooting range for grid tactics
+		if dist_to_ball < 4.0:  # INCREASED from 1.6
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
 			# Aim away from goalkeeper within grid tactic too
 			var keeper_z: float = 0.0
@@ -283,9 +319,13 @@ func _apply_grid_tactics_if_applicable() -> bool:
 				var away_sign: float = 1.0 if (ball.global_transform.origin.z < keeper_z) else -1.0
 				aim_z = clamp(keeper_z + away_sign * 6.0, -field_half_height_z + 6.0, field_half_height_z - 6.0)
 			var shoot_dir: Vector3 = Vector3(target_x, 0.0, aim_z) - ball.global_transform.origin
-			ball.kick(shoot_dir, 19.0)
+			# ENHANCED shot power and lift
+			shoot_dir.y = 2.0  # INCREASED lift
+			ball.kick(shoot_dir, 25.0)  # INCREASED power from 19.0
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", is_team_a)
+			# Trigger kick animation
+			play_kick_animation()
 			velocity = Vector3.ZERO
 			move_and_slide()
 		else:
@@ -422,3 +462,175 @@ func _wall_hug_tangent() -> Vector3:
 	else:
 		# Near horizontal wall → move along X
 		return Vector3((ball.global_transform.origin.x - pos.x), 0, 0).normalized()
+
+# Attack mode and grid flexibility functions
+func _check_attack_mode() -> void:
+	if not ball or not _is_forward_player():
+		return
+	
+	# MUCH more aggressive attack mode activation
+	var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+	var ball_in_opponent_half: bool = (is_team_a and ball.global_transform.origin.x < 10.0) or (not is_team_a and ball.global_transform.origin.x > -10.0)  # EXPANDED zone
+	var close_to_ball: bool = global_transform.origin.distance_to(ball.global_transform.origin) < 30.0  # INCREASED from 20.0
+	var my_team_has_ball: bool = _my_team_has_possession()
+	
+	# Enter attack mode for forward players when conditions are met
+	if ball_in_opponent_half and close_to_ball and my_team_has_ball:
+		if not attack_mode:
+			attack_mode = true
+			attack_mode_timer = 0.0
+			print("Forward player entering attack mode: ", role)
+
+# CRITICAL: Much more flexible grid override for goal scoring
+func _should_ignore_grid_for_goal() -> bool:
+	if not ball:
+		return false
+	
+	# Allow ALL players to break grid when ball is close to ANY goal
+	var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+	var ball_distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
+	var player_distance_to_ball: float = global_transform.origin.distance_to(ball.global_transform.origin)
+	
+	# MUCH more lenient conditions for grid breaking
+	if ball_distance_to_goal < 35.0 and player_distance_to_ball < 15.0:  # INCREASED ranges
+		return true
+	
+	# Also allow grid breaking in attack mode for forward players
+	if _is_forward_player() and attack_mode:
+		return true
+	
+	# Allow grid breaking when very close to ball regardless of position
+	if player_distance_to_ball < 5.0:
+		return true
+	
+	return false
+
+func _is_forward_player() -> bool:
+	# Forward players who can break grid constraints
+	return role == "striker" or role == "midfielder"
+
+func _my_team_has_possession() -> bool:
+	if not ball or not ball.has_method("get"):
+		return false
+	
+	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
+	return last_touch_a == is_team_a
+
+# ==========================================
+# ANIMATION AND APPEARANCE SYSTEM
+# ==========================================
+
+func setup_team_appearance() -> void:
+	"""Setup team-specific jersey colors and materials"""
+	if not has_node("PlayerModel"):
+		return
+		
+	var player_model = $PlayerModel
+	var jersey_material = StandardMaterial3D.new()
+	
+	# Set team colors - special handling for goalkeepers
+	if role == "goalkeeper":
+		# Goalkeepers get bright yellow/green for visibility
+		jersey_material.albedo_color = Color(1.0, 0.9, 0.2, 1)  # Bright yellow
+	elif is_team_a:
+		jersey_material.albedo_color = Color(0.2, 0.4, 0.9, 1)  # Blue for Team A
+	else:
+		jersey_material.albedo_color = Color(0.9, 0.2, 0.2, 1)  # Red for Team B
+	
+	# Apply jersey material to torso and upper arms
+	if player_model.has_node("Torso"):
+		player_model.get_node("Torso").material_override = jersey_material
+	
+	if player_model.has_node("LeftArm/UpperArm"):
+		player_model.get_node("LeftArm/UpperArm").material_override = jersey_material
+		
+	if player_model.has_node("RightArm/UpperArm"):
+		player_model.get_node("RightArm/UpperArm").material_override = jersey_material
+
+func update_animation() -> void:
+	"""Update player animations based on current state"""
+	if not animation_player or kick_animation_playing or celebration_animation_playing:
+		return
+		
+	var new_animation = "idle"
+	var movement_threshold = 0.8
+	var ball_distance = 999.0
+	
+	# Calculate distance to ball for dribbling detection
+	if ball:
+		ball_distance = global_transform.origin.distance_to(ball.global_transform.origin)
+		
+		# Track how long player has been close to ball
+		if ball_distance < 3.0:
+			close_to_ball_time += get_physics_process_delta_time()
+		else:
+			close_to_ball_time = 0.0
+			
+		# Enable dribbling mode when close to ball and moving
+		dribbling_mode = (ball_distance < 2.5 and velocity.length() > 0.3 and close_to_ball_time > 0.5)
+	
+	# Determine animation based on player state
+	if dribbling_mode and ball_distance < 2.5:
+		new_animation = "dribbling"
+	elif velocity.length() > movement_threshold:
+		new_animation = "running"
+	else:
+		new_animation = "idle"
+	
+	# Only change animation if it's different from current
+	if new_animation != current_animation:
+		current_animation = new_animation
+		if animation_player.has_animation(current_animation):
+			animation_player.play(current_animation, animation_blend_time)
+	
+	last_ball_distance = ball_distance
+
+func play_kick_animation() -> void:
+	"""Play kicking animation when player kicks the ball"""
+	if not animation_player:
+		return
+		
+	kick_animation_playing = true
+	current_animation = "kicking"
+	
+	if animation_player.has_animation("kicking"):
+		animation_player.play("kicking")
+		# Connect to animation finished signal to return to normal animations
+		if not animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.connect(_on_kick_animation_finished)
+
+func _on_kick_animation_finished(animation_name: String) -> void:
+	"""Called when kick animation finishes"""
+	if animation_name == "kicking":
+		kick_animation_playing = false
+		# Disconnect the signal to avoid multiple connections
+		if animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.disconnect(_on_kick_animation_finished)
+		# Return to appropriate animation based on current state
+		update_animation()
+	elif animation_name == "celebration":
+		celebration_animation_playing = false
+		# Disconnect the signal to avoid multiple connections
+		if animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.disconnect(_on_kick_animation_finished)
+		# Return to appropriate animation based on current state
+		update_animation()
+
+func play_celebration_animation() -> void:
+	"""Play celebration animation when player scores or team scores"""
+	if not animation_player:
+		return
+		
+	celebration_animation_playing = true
+	current_animation = "celebration"
+	
+	if animation_player.has_animation("celebration"):
+		animation_player.play("celebration")
+		# Connect to animation finished signal
+		if not animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.connect(_on_kick_animation_finished)
+
+func trigger_celebration() -> void:
+	"""Public method to trigger celebration from external scripts"""
+	print("🎉 Player ", name, " starting celebration!")
+	play_celebration_animation()

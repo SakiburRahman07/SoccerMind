@@ -1,13 +1,38 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes3d/Field3D.tscn" id="1_field"]
 [ext_resource type="Script" path="res://scripts3d/GameManager3D.gd" id="2_gm3d"]
+[ext_resource type="Script" path="res://scripts3d/UIController3D.gd" id="3_ui"]
+[ext_resource type="Script" path="res://scripts3d/UIBridge3D.gd" id="4_bridge"]
+[ext_resource type="Script" path="res://scripts3d/MinimapRenderer3D.gd" id="5_minimap"]
+[ext_resource type="Script" path="res://scripts3d/SimpleParticleEffects3D.gd" id="6_effects"]
+[ext_resource type="Script" path="res://scripts3d/CameraController3D.gd" id="7_camera"]
+
 [sub_resource type="LabelSettings" id="1_ls"]
 font_size = 36
 outline_size = 4
 outline_color = Color(0, 0, 0, 0.7)
 shadow_size = 2
 shadow_color = Color(0, 0, 0, 0.45)
+
+[sub_resource type="LabelSettings" id="2_team_label"]
+font_size = 28
+outline_size = 3
+outline_color = Color(0, 0, 0, 0.8)
+shadow_size = 1
+shadow_color = Color(0, 0, 0, 0.5)
+
+[sub_resource type="LabelSettings" id="3_info_label"]
+font_size = 16
+outline_size = 2
+outline_color = Color(0, 0, 0, 0.6)
+
+[sub_resource type="StyleBoxFlat" id="4_panel_style"]
+bg_color = Color(0, 0, 0, 0.7)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
 [node name="Main3D" type="Node3D"]
 script = ExtResource("2_gm3d")
@@ -16,7 +41,351 @@ script = ExtResource("2_gm3d")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
+[node name="UIController" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("3_ui")
+
+[node name="EnhancedHUD" type="Control" parent="CanvasLayer/UIController"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Scoreboard" type="Panel" parent="CanvasLayer/UIController/EnhancedHUD"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 10.0
+offset_right = 200.0
+offset_bottom = 80.0
+theme_override_styles/panel = SubResource("4_panel_style")
+
+[node name="TeamAScore" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_right = 0.4
+anchor_bottom = 1.0
+text = "0"
+label_settings = SubResource("2_team_label")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="VS" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_left = 0.4
+anchor_right = 0.6
+anchor_bottom = 1.0
+text = "VS"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TeamBScore" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_left = 0.6
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "0"
+label_settings = SubResource("2_team_label")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TeamAName" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_right = 0.4
+anchor_bottom = 0.4
+text = "TEAM A"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+vertical_alignment = 2
+
+[node name="TeamBName" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_left = 0.6
+anchor_right = 1.0
+anchor_bottom = 0.4
+text = "TEAM B"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+vertical_alignment = 2
+
+[node name="MatchTimer" type="Label" parent="CanvasLayer/UIController/EnhancedHUD/Scoreboard"]
+layout_mode = 0
+anchor_left = 0.4
+anchor_right = 0.6
+anchor_top = 0.6
+anchor_bottom = 1.0
+text = "00:00"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GamePhase" type="Label" parent="CanvasLayer/UIController/EnhancedHUD"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -100.0
+offset_top = 90.0
+offset_right = 100.0
+offset_bottom = 110.0
+text = "Kickoff"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="PossessionBar" type="ProgressBar" parent="CanvasLayer/UIController/EnhancedHUD"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -150.0
+offset_top = 120.0
+offset_right = 150.0
+offset_bottom = 140.0
+value = 50.0
+show_percentage = false
+
+[node name="PossessionLabel" type="Label" parent="CanvasLayer/UIController/EnhancedHUD"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -75.0
+offset_top = 145.0
+offset_right = 75.0
+offset_bottom = 165.0
+text = "Possession"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="BallSpeed" type="Label" parent="CanvasLayer/UIController/EnhancedHUD"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 200.0
+offset_bottom = 30.0
+text = "Ball Speed: 0.0 m/s"
+label_settings = SubResource("3_info_label")
+
+[node name="StatsPanel" type="Panel" parent="CanvasLayer/UIController"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -250.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 300.0
+theme_override_styles/panel = SubResource("4_panel_style")
+
+[node name="StatsTitle" type="Label" parent="CanvasLayer/UIController/StatsPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_bottom = 30.0
+text = "MATCH STATISTICS"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="PlayerInfo" type="VBoxContainer" parent="CanvasLayer/UIController/StatsPanel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 0.6
+offset_top = 35.0
+offset_left = 10.0
+offset_right = -10.0
+
+[node name="PerformanceMetrics" type="VBoxContainer" parent="CanvasLayer/UIController/StatsPanel"]
+layout_mode = 0
+anchor_top = 0.6
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_right = -10.0
+
+[node name="PerformanceLabel" type="Label" parent="CanvasLayer/UIController/StatsPanel/PerformanceMetrics"]
+layout_mode = 2
+text = "Team A: 50% | Team B: 50%"
+label_settings = SubResource("3_info_label")
+
+[node name="ControlPanel" type="Panel" parent="CanvasLayer/UIController"]
+layout_mode = 0
+offset_left = 10.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -120.0
+offset_right = 200.0
+offset_bottom = -10.0
+theme_override_styles/panel = SubResource("4_panel_style")
+
+[node name="ControlTitle" type="Label" parent="CanvasLayer/UIController/ControlPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_bottom = 25.0
+text = "GAME CONTROLS"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="PauseButton" type="Button" parent="CanvasLayer/UIController/ControlPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_left = 10.0
+offset_top = 30.0
+offset_right = -10.0
+offset_bottom = 55.0
+text = "Pause"
+
+[node name="SpeedLabel" type="Label" parent="CanvasLayer/UIController/ControlPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_top = 60.0
+offset_bottom = 75.0
+text = "Game Speed"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="SpeedSlider" type="HSlider" parent="CanvasLayer/UIController/ControlPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_left = 10.0
+offset_top = 80.0
+offset_right = -10.0
+offset_bottom = 100.0
+min_value = 0.5
+max_value = 4.0
+step = 0.5
+value = 1.0
+
+[node name="CameraControls" type="HBoxContainer" parent="CanvasLayer/UIController/ControlPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_left = 10.0
+offset_top = 105.0
+offset_right = -10.0
+offset_bottom = 125.0
+
+[node name="CameraButton" type="Button" parent="CanvasLayer/UIController/ControlPanel/CameraControls"]
+layout_mode = 2
+text = "Cam"
+tooltip_text = "Switch Camera (C)"
+
+[node name="ZoomInButton" type="Button" parent="CanvasLayer/UIController/ControlPanel/CameraControls"]
+layout_mode = 2
+text = "+"
+tooltip_text = "Zoom In (+)"
+
+[node name="ZoomOutButton" type="Button" parent="CanvasLayer/UIController/ControlPanel/CameraControls"]
+layout_mode = 2
+text = "-"
+tooltip_text = "Zoom Out (-)"
+
+[node name="HelpPanel" type="Panel" parent="CanvasLayer/UIController"]
+visible = false
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+theme_override_styles/panel = SubResource("4_panel_style")
+
+[node name="HelpTitle" type="Label" parent="CanvasLayer/UIController/HelpPanel"]
+layout_mode = 0
+anchor_right = 1.0
+offset_bottom = 30.0
+text = "GAME CONTROLS"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="HelpText" type="RichTextLabel" parent="CanvasLayer/UIController/HelpPanel"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 35.0
+offset_right = -10.0
+offset_bottom = -40.0
+bbcode_enabled = true
+text = "[b]Camera Controls:[/b]
+[color=cyan]C[/color] - Switch camera mode
+[color=cyan]+/-[/color] - Zoom in/out
+[color=cyan]Home[/color] - Reset camera
+
+[b]Game Controls:[/b]
+[color=cyan]N[/color] - Toggle day/night
+[color=cyan]R[/color] - Manual restart
+[color=cyan]Space[/color] - Pause/Resume
+[color=cyan]H[/color] - Toggle this help
+[color=cyan]T[/color] - Test score update
+
+[b]UI Panels:[/b]
+[color=cyan]S[/color] - Toggle stats panel
+[color=cyan]M[/color] - Toggle minimap"
+
+[node name="CloseHelpButton" type="Button" parent="CanvasLayer/UIController/HelpPanel"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -80.0
+anchor_bottom = 1.0
+offset_top = -35.0
+offset_right = -10.0
+offset_bottom = -10.0
+text = "Close"
+
+[node name="HelpButton" type="Button" parent="CanvasLayer/UIController"]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -50.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = 35.0
+text = "?"
+tooltip_text = "Help (H)"
+
+[node name="Minimap" type="Panel" parent="CanvasLayer/UIController"]
+layout_mode = 0
+anchor_top = 1.0
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -160.0
+offset_right = -10.0
+offset_bottom = -10.0
+theme_override_styles/panel = SubResource("4_panel_style")
+
+[node name="MinimapTitle" type="Label" parent="CanvasLayer/UIController/Minimap"]
+layout_mode = 0
+anchor_right = 1.0
+offset_bottom = 20.0
+text = "MINIMAP"
+label_settings = SubResource("3_info_label")
+horizontal_alignment = 1
+
+[node name="MinimapField" type="Control" parent="CanvasLayer/UIController/Minimap"]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = 25.0
+offset_right = -5.0
+offset_bottom = -5.0
+script = ExtResource("5_minimap")
+
+[node name="UIBridge" type="Node" parent="."]
+script = ExtResource("4_bridge")
+
+[node name="SimpleParticleEffects" type="Node3D" parent="."]
+script = ExtResource("6_effects")
+
+[node name="CameraController" type="Node3D" parent="."]
+script = ExtResource("7_camera")
+
 [node name="Score" type="Label" parent="CanvasLayer"]
+visible = false
 offset_left = 0.0
 offset_top = 10.0
 offset_right = 1280.0
