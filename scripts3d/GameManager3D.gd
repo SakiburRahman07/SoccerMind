@@ -89,6 +89,7 @@ func _check_for_goal(pos: Vector3) -> bool:
 		score_b += 1
 		last_scorer_team_a = false
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		_trigger_team_celebration(false)  # Team B celebrates
 		_update_score_ui()
 		_reset_kickoff()
 		return true
@@ -101,6 +102,7 @@ func _check_for_goal(pos: Vector3) -> bool:
 		score_a += 1
 		last_scorer_team_a = true
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		_trigger_team_celebration(true)  # Team A celebrates
 		_update_score_ui()
 		_reset_kickoff()
 		return true
@@ -288,6 +290,7 @@ func _on_goal_entered(body: Node) -> void:
 		# Team A scores (attacking left goal)
 		score_a += 1
 		last_scorer_team_a = true
+		_trigger_team_celebration(true)  # Team A celebrates
 		_reset_kickoff()
 		print("Score A:", score_a, " B:", score_b)
 		_update_score_ui()
@@ -298,6 +301,7 @@ func _on_goal_entered(body: Node) -> void:
 		# Team B scores (attacking right goal)
 		score_b += 1
 		last_scorer_team_a = false
+		_trigger_team_celebration(false)  # Team B celebrates
 		_reset_kickoff()
 		print("Score A:", score_a, " B:", score_b)
 		_update_score_ui()
@@ -313,6 +317,37 @@ func _update_score_ui() -> void:
 		# Determine which goal was scored into based on the last scorer
 		var is_left_goal_scored = not last_scorer_team_a  # If Team A scored, it was into the right goal
 		particle_effects.trigger_goal_celebration(is_left_goal_scored)
+
+func _trigger_team_celebration(celebrating_team_a: bool) -> void:
+	"""Trigger celebration animations for the scoring team"""
+	var celebrating_group := "team_a" if celebrating_team_a else "team_b"
+	var players := get_tree().get_nodes_in_group(celebrating_group)
+	
+	print("🎉 Triggering celebration for ", celebrating_group)
+	
+	# Trigger celebration for 3 closest players to the ball
+	var ball_pos = ball.global_transform.origin if ball else Vector3.ZERO
+	var closest_players = []
+	
+	for player in players:
+		if player != null and is_instance_valid(player) and player is Player3D:
+			if player.has_method("trigger_celebration"):
+				var distance = player.global_transform.origin.distance_to(ball_pos)
+				closest_players.append({"player": player, "distance": distance})
+	
+	# Sort by distance and celebrate the 3 closest
+	closest_players.sort_custom(func(a, b): return a.distance < b.distance)
+	
+	for i in min(3, closest_players.size()):
+		var player_data = closest_players[i]
+		var player = player_data.player
+		if player != null and is_instance_valid(player) and player.has_method("trigger_celebration"):
+			# Delay celebrations slightly so they don't all start at once
+			var delay_timer = get_tree().create_timer(i * 0.2)
+			delay_timer.timeout.connect(func(): 
+				if player != null and is_instance_valid(player) and player.has_method("trigger_celebration"):
+					player.trigger_celebration()
+			)
 
 func _detect_and_recover_from_stall(delta: float) -> void:
 	if not ball:

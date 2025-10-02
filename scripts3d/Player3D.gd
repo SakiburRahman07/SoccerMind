@@ -14,8 +14,12 @@ var home_position: Vector3 = Vector3.ZERO
 # Animation system variables
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
 var current_animation: String = "idle"
-var animation_blend_time: float = 0.1
+var animation_blend_time: float = 0.15
 var kick_animation_playing: bool = false
+var celebration_animation_playing: bool = false
+var dribbling_mode: bool = false
+var last_ball_distance: float = 999.0
+var close_to_ball_time: float = 0.0
 
 # Attack mode for forward players - allows breaking grid constraints
 var attack_mode: bool = false
@@ -545,14 +549,30 @@ func setup_team_appearance() -> void:
 
 func update_animation() -> void:
 	"""Update player animations based on current state"""
-	if not animation_player or kick_animation_playing:
+	if not animation_player or kick_animation_playing or celebration_animation_playing:
 		return
 		
 	var new_animation = "idle"
-	var movement_threshold = 0.5
+	var movement_threshold = 0.8
+	var ball_distance = 999.0
+	
+	# Calculate distance to ball for dribbling detection
+	if ball:
+		ball_distance = global_transform.origin.distance_to(ball.global_transform.origin)
+		
+		# Track how long player has been close to ball
+		if ball_distance < 3.0:
+			close_to_ball_time += get_physics_process_delta_time()
+		else:
+			close_to_ball_time = 0.0
+			
+		# Enable dribbling mode when close to ball and moving
+		dribbling_mode = (ball_distance < 2.5 and velocity.length() > 0.3 and close_to_ball_time > 0.5)
 	
 	# Determine animation based on player state
-	if velocity.length() > movement_threshold:
+	if dribbling_mode and ball_distance < 2.5:
+		new_animation = "dribbling"
+	elif velocity.length() > movement_threshold:
 		new_animation = "running"
 	else:
 		new_animation = "idle"
@@ -562,6 +582,8 @@ func update_animation() -> void:
 		current_animation = new_animation
 		if animation_player.has_animation(current_animation):
 			animation_player.play(current_animation, animation_blend_time)
+	
+	last_ball_distance = ball_distance
 
 func play_kick_animation() -> void:
 	"""Play kicking animation when player kicks the ball"""
@@ -586,3 +608,29 @@ func _on_kick_animation_finished(animation_name: String) -> void:
 			animation_player.animation_finished.disconnect(_on_kick_animation_finished)
 		# Return to appropriate animation based on current state
 		update_animation()
+	elif animation_name == "celebration":
+		celebration_animation_playing = false
+		# Disconnect the signal to avoid multiple connections
+		if animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.disconnect(_on_kick_animation_finished)
+		# Return to appropriate animation based on current state
+		update_animation()
+
+func play_celebration_animation() -> void:
+	"""Play celebration animation when player scores or team scores"""
+	if not animation_player:
+		return
+		
+	celebration_animation_playing = true
+	current_animation = "celebration"
+	
+	if animation_player.has_animation("celebration"):
+		animation_player.play("celebration")
+		# Connect to animation finished signal
+		if not animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.connect(_on_kick_animation_finished)
+
+func trigger_celebration() -> void:
+	"""Public method to trigger celebration from external scripts"""
+	print("🎉 Player ", name, " starting celebration!")
+	play_celebration_animation()

@@ -32,6 +32,9 @@ func _spawn_players() -> void:
 		var p: CharacterBody3D = player_scene.instantiate()
 		p.is_team_a = is_team_a
 		p.role = roles[i]
+		# Give player a proper name for debugging
+		var team_name = "A" if is_team_a else "B"
+		p.name = "Player_%s_%s_%d" % [team_name, roles[i], i]
 		var ai := _make_ai_for_role(roles[i], i)
 		add_child(p)
 		p.global_transform.origin = positions[i]
@@ -40,6 +43,8 @@ func _spawn_players() -> void:
 		p.setup(ball, ai)
 		# tag by group for fuzzy pass
 		p.add_to_group("team_a" if is_team_a else "team_b")
+		# Add to players array for tracking
+		players.append(p)
 		# Team appearance is now handled by Player3D.setup_team_appearance() 
 		# which is called from Player3D.setup()
 		# Assign per-player grid bounds and staging, except rover and GK
