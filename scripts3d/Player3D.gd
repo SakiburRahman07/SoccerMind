@@ -7,7 +7,7 @@ class_name Player3D
 @export var grid_cell_size: float = 4.0
 
 var ball: CharacterBody3D
-var speed: float = 12.0  # INCREASED from 9.5 for faster movement
+var speed: float = 8.0  # INCREASED from 9.5 for faster movement
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
