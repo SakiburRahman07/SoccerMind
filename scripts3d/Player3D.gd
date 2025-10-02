@@ -164,8 +164,8 @@ func _physics_process(_delta: float) -> void:
 	# Update animations based on player state
 	update_animation()
 	
-	# Keep player locked to pitch plane
-	global_position.y = 1.0
+	# Keep player locked to pitch plane (adjusted for taller players)
+	global_position.y = 1.2
 	# Relaxed bounds to allow slight overlap near walls
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
