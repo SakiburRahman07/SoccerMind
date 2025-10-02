@@ -56,16 +56,54 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reset_kickoff()
 
 func _process(delta: float) -> void:
-	# Detect out-of-bounds for throw-in / corner / goal kick
 	if ball == null:
 		return
+	
 	var pos := ball.global_transform.origin
-	if abs(pos.x) > touchline_x and not _restart_in_progress:
+	
+	# CRITICAL FIX: Check for goals FIRST before out-of-bounds
+	# Goals are at X = ±58, so check if ball crossed goal line
+	if not _restart_in_progress:
+		if _check_for_goal(pos):
+			return  # Goal scored, don't check out of bounds
+	
+	# Then check out-of-bounds for throw-in / corner / goal kick
+	# INCREASED touchline to 65 to give more space for goals
+	if abs(pos.x) > 65.0 and not _restart_in_progress:
 		_handle_throw_in(pos)
 	elif abs(pos.z) > goalline_z and not _restart_in_progress:
 		_handle_corner_or_goal_kick(pos)
 	_detect_and_recover_from_stall(delta)
 	_perform_health_check(delta)
+
+# NEW: Manual goal checking function
+func _check_for_goal(pos: Vector3) -> bool:
+	# Check if ball is in goal area (X beyond ±58 and Z within goal width)
+	var goal_width: float = 12.0  # Goal is 12 units wide (from Goal3D.tscn)
+	
+	# Left goal (X < -58)
+	if pos.x < -58.0 and abs(pos.z) < goal_width / 2.0:
+		print("GOAL! Ball entered left goal at position: ", pos)
+		# Team A scores (attacking left goal)
+		score_a += 1
+		last_scorer_team_a = true
+		_reset_kickoff()
+		print("Score A:", score_a, " B:", score_b)
+		_update_score_ui()
+		return true
+	
+	# Right goal (X > 58)
+	if pos.x > 58.0 and abs(pos.z) < goal_width / 2.0:
+		print("GOAL! Ball entered right goal at position: ", pos)
+		# Team B scores (attacking right goal)
+		score_b += 1
+		last_scorer_team_a = false
+		_reset_kickoff()
+		print("Score A:", score_a, " B:", score_b)
+		_update_score_ui()
+		return true
+	
+	return false
 
 func _nearest_player(for_team_a: bool, near_pos: Vector3) -> Node:
 	var group_name := "team_a" if for_team_a else "team_b"
@@ -133,8 +171,8 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 		if taker_c:
 			_begin_restart(taker_c)
 			# Corner: lob toward box
-			var into_box := Vector3(5.0 if is_left_side else -5.0, 7.0, ( -6.0 if pos.z < 0.0 else 6.0 ))
-			_schedule_restart_kick(into_box, 12.0)
+			var lob_dir := Vector3((-1.0 if is_left_side else 1.0) * 12.0, 8.0, (-1.0 if pos.z < 0.0 else 1.0) * 8.0)
+			_schedule_restart_kick(lob_dir, 16.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a_c)
 		else:
@@ -144,44 +182,35 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 func _begin_restart(taker: Node) -> void:
 	_restart_in_progress = true
 	_restart_taker = taker
-	_freeze_all_except(taker)
-	if _restart_timer == null:
-		_restart_timer = Timer.new()
-		_restart_timer.one_shot = true
-		add_child(_restart_timer)
-
-func _schedule_restart_kick(dir: Vector3, force: float) -> void:
-	# small delay to make restart readable
-	_restart_timer.wait_time = 0.6
-	var started_at := Time.get_ticks_msec()
-	_restart_timer.timeout.connect(func():
-		ball.kick(dir, force)
-		_unfreeze_all()
-		_restart_in_progress = false
-		_restart_taker = null
-		, CONNECT_ONE_SHOT)
-	_restart_timer.start()
-	# Watchdog: if somehow not completed within 2 seconds, unfreeze anyway
-	call_deferred("_ensure_restart_completed", started_at)
-
-func _ensure_restart_completed(started_at: int) -> void:
-	await get_tree().create_timer(2.0).timeout
-	if _restart_in_progress:
-		_unfreeze_all()
-		_restart_in_progress = false
-		_restart_taker = null
-
-func _freeze_all_except(taker: Node) -> void:
-	_frozen_players.clear()
+	# Freeze all players except the taker
 	for team in [team_a, team_b]:
 		if not team:
 			continue
 		for child in team.get_children():
-			if child is Player3D:
-				if child == taker:
-					continue
+			if child is Player3D and child != taker:
 				_frozen_players.append(child)
 				child.set_physics_process(false)
+
+func _schedule_restart_kick(direction: Vector3, force: float) -> void:
+	# Create a timer for the restart kick
+	if _restart_timer:
+		_restart_timer.queue_free()
+	_restart_timer = Timer.new()
+	_restart_timer.wait_time = 1.0
+	_restart_timer.one_shot = true
+	_restart_timer.timeout.connect(_execute_restart_kick.bind(direction, force))
+	add_child(_restart_timer)
+	_restart_timer.start()
+
+func _execute_restart_kick(direction: Vector3, force: float) -> void:
+	if ball and _restart_taker:
+		ball.kick(direction, force)
+	_unfreeze_all()
+	_restart_in_progress = false
+	_restart_taker = null
+	if _restart_timer:
+		_restart_timer.queue_free()
+		_restart_timer = null
 
 func _unfreeze_all() -> void:
 	# Robust unfreezing - ensure ALL players are unfrozen, not just the tracked ones
@@ -201,15 +230,20 @@ func _unfreeze_all() -> void:
 			p.set_physics_process(true)
 
 func _setup_goals() -> void:
-	# Flip: Team B defends left; Team A defends right
+	# Enhanced goal setup with better detection
 	if goal_left:
 		goal_left.set_meta("team", "B")
-		goal_left.body_entered.connect(func(b): _on_goal_entered(b))
+		# Connect both body_entered and body_exited for better detection
+		if not goal_left.body_entered.is_connected(_on_goal_entered):
+			goal_left.body_entered.connect(_on_goal_entered)
+		print("GoalLeft setup complete at position: ", goal_left.global_position)
 	else:
 		push_warning("GoalLeft not found in Field3D")
 	if goal_right:
 		goal_right.set_meta("team", "A")
-		goal_right.body_entered.connect(func(b): _on_goal_entered(b))
+		if not goal_right.body_entered.is_connected(_on_goal_entered):
+			goal_right.body_entered.connect(_on_goal_entered)
+		print("GoalRight setup complete at position: ", goal_right.global_position)
 	else:
 		push_warning("GoalRight not found in Field3D")
 
@@ -240,29 +274,28 @@ func _reset_kickoff() -> void:
 		var kickoff_target := Vector3(team_dir * 2.0, 0.0, 0.0)
 		ball.kick(kickoff_target, 6.0)
 
+# Enhanced goal detection with backup method
 func _on_goal_entered(body: Node) -> void:
+	print("Goal area entered by: ", body.name if body else "unknown")
 	if body != ball:
 		return
+	
+	# Determine which goal was entered and award point to attacking team
 	if goal_left and goal_left.get_overlapping_bodies().has(body):
-		var goal_team: String = goal_left.get_meta("team")
-		if goal_team == "A":
-			score_b += 1
-			last_scorer_team_a = false
-		else:
-			score_a += 1
-			last_scorer_team_a = true
+		print("GOAL! Ball entered left goal via Area3D detection")
+		# Team A scores (attacking left goal)
+		score_a += 1
+		last_scorer_team_a = true
 		_reset_kickoff()
 		print("Score A:", score_a, " B:", score_b)
 		_update_score_ui()
 		return
+	
 	if goal_right and goal_right.get_overlapping_bodies().has(body):
-		var goal_team_r: String = goal_right.get_meta("team")
-		if goal_team_r == "A":
-			score_b += 1
-			last_scorer_team_a = false
-		else:
-			score_a += 1
-			last_scorer_team_a = true
+		print("GOAL! Ball entered right goal via Area3D detection")
+		# Team B scores (attacking right goal)
+		score_b += 1
+		last_scorer_team_a = false
 		_reset_kickoff()
 		print("Score A:", score_a, " B:", score_b)
 		_update_score_ui()
@@ -273,101 +306,44 @@ func _update_score_ui() -> void:
 		score_label.text = "A %d - %d B" % [score_a, score_b]
 
 func _detect_and_recover_from_stall(delta: float) -> void:
-	if _restart_in_progress:
-		_stall_timer = 0.0
+	if not ball:
 		return
-		
-	var ball_still: bool = ball and ball.velocity.length() <= stall_velocity_epsilon
-	var players_still: bool = true
-	var active_player_count: int = 0
-	
-	for team in [team_a, team_b]:
-		if not team:
-			continue
-		for child in team.get_children():
-			if child is Player3D:
-				active_player_count += 1
-				if child.velocity.length() > stall_velocity_epsilon:
-					players_still = false
-					break
-		if not players_still:
-			break
-	
-	# Only trigger stall if we have players and everything is truly still
-	if ball_still and players_still and active_player_count > 0:
+	var ball_vel := Vector3(ball.velocity.x, 0.0, ball.velocity.z).length()
+	if ball_vel < stall_velocity_epsilon:
 		_stall_timer += delta
-		if _stall_timer >= stall_seconds_threshold:
-			print("Stall detected - nudging ball and ensuring players are active")
-			
-			# First, ensure all players are unfrozen
-			_unfreeze_all()
-			
-			# Nudge ball toward center
-			var toward_center: Vector3 = (Vector3(0, 1.0, 0) - ball.global_transform.origin)
-			toward_center.y = 0.3
-			ball.kick(toward_center.normalized(), 6.0)
-			
-			# Force reset player staging states
-			for team in [team_a, team_b]:
-				if not team:
-					continue
-				for child in team.get_children():
-					if child is Player3D:
-						if child.has_method("set") and child.get("is_staging"):
-							child.set("is_staging", false)
-			
-			_stall_timer = 0.0
 	else:
+		_stall_timer = 0.0
+	if _stall_timer > stall_seconds_threshold:
+		print("Ball stall detected - nudging toward nearest player")
+		var nearest: Node = _nearest_player(true, ball.global_transform.origin)
+		if not nearest:
+			nearest = _nearest_player(false, ball.global_transform.origin)
+		if nearest:
+			# Fixed type inference issue by explicitly typing the Vector3
+			var nudge_dir: Vector3 = nearest.global_transform.origin - ball.global_transform.origin
+			nudge_dir.y = 0.0
+			if nudge_dir.length() > 0.01:
+				ball.velocity += nudge_dir.normalized() * 3.0
 		_stall_timer = 0.0
 
 func _perform_health_check(delta: float) -> void:
 	health_check_timer += delta
 	if health_check_timer >= health_check_interval:
 		health_check_timer = 0.0
-		
-		# Check if players are still active and have proper references
-		var inactive_players: int = 0
-		var total_players: int = 0
-		
+		# Check if teams and ball are still valid
+		if not ball:
+			push_error("Ball reference lost!")
+		if not team_a or not team_b:
+			push_error("Team reference lost!")
+		# Check if any players are stuck
+		var stuck_players := 0
 		for team in [team_a, team_b]:
-			if not team:
-				continue
-			for child in team.get_children():
-				if child is Player3D:
-					total_players += 1
-					# Check if player has ball reference
-					if not child.ball:
-						child.ball = ball
-						print("Health check: Restored ball reference for player")
-					# Check if player has AI
-					if not child.ai:
-						print("Health check: Player missing AI - attempting to fix")
-						# Try to restore AI
-						var role = child.role if child.has_method("get") else "midfielder"
-						var new_ai = _create_ai_for_role(role, total_players)
-						if new_ai:
-							child.ai = new_ai
-							child.ai.set("player", child) 
-							child.ai.set("ball", ball)
-							child.add_child(new_ai)
-					# Check if physics is enabled
-					if not child.is_physics_processing():
-						child.set_physics_process(true)
-						print("Health check: Re-enabled physics for player")
-						inactive_players += 1
-		
-		if inactive_players > 0:
-			print("Health check: Fixed ", inactive_players, " inactive players out of ", total_players)
-
-func _create_ai_for_role(role: String, index: int) -> Node:
-	match role:
-		"goalkeeper":
-			return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
-		"defender":
-			return load("res://scripts3d/ai/Defender3D.gd").new()
-		"midfielder":
-			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
-		"striker":
-			return load("res://scripts3d/ai/Striker3D.gd").new()
-		_:
-			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
+			if team:
+				for child in team.get_children():
+					if child is Player3D:
+						var player: Player3D = child
+						if player.velocity.length() < 0.1:
+							stuck_players += 1
+		if stuck_players > 8:  # More than 8 players stuck
+			print("Many players stuck - performing emergency reset")
+			_reset_kickoff()

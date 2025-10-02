@@ -17,7 +17,23 @@ func decide() -> Dictionary:
 	var desire: Vector3 = (target - player.global_transform.origin)
 	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.4
 	var dir: Vector3 = (desire + keep_shape).normalized()
-	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.5:
+	
+	# Increased action range for better attacking opportunities
+	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 4.0:
+		# Check for shooting opportunity first
+		var opponent_goal_x: float = -58.0 if player.is_team_a else 58.0
+		var distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
+		
+		# Shoot if reasonably close to goal and well positioned
+		if distance_to_goal < 30.0:
+			var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
+			var to_goal: Vector3 = Vector3(opponent_goal_x, 0, 0) - ball.global_transform.origin
+			var angle_cos: float = to_ball.normalized().dot(to_goal.normalized())
+			if angle_cos > 0.3:  # Decent angle to goal
+				var shot_dir: Vector3 = to_goal
+				shot_dir.y = 1.2  # Add lift
+				return {"action": "kick", "force": 18.0, "direction": shot_dir}
+		
 		# Safer pass using fuzzy selection with adaptive force
 		var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")

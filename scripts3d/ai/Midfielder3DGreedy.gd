@@ -15,9 +15,28 @@ func decide() -> Dictionary:
 	var home: Vector3 = player.home_position if player and player.has_method("set_home_position") else player.global_transform.origin
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
 	var desire: Vector3 = to_ball
-	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.3
+	var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.2  # REDUCED formation constraint
 	var dir: Vector3 = (desire + keep_shape).normalized()
-	if to_ball.length() < 2.5:
+	
+	# MASSIVELY increased action range for midfielders
+	if to_ball.length() < 8.0:  # INCREASED from 4.0
+		# ALWAYS check for shooting opportunity first
+		var opponent_goal_x: float = -58.0 if player.is_team_a else 58.0
+		var distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
+		
+		# MUCH more aggressive shooting - shoot from anywhere in opponent half
+		if distance_to_goal < 45.0:  # MASSIVELY increased from 25.0
+			var to_goal: Vector3 = Vector3(opponent_goal_x, 0, 0) - ball.global_transform.origin
+			var angle_cos: float = to_ball.normalized().dot(to_goal.normalized())
+			
+			# MUCH lower angle requirement - shoot from almost any angle
+			if angle_cos > 0.1:  # REDUCED from 0.4
+				var shot_dir: Vector3 = to_goal
+				shot_dir.y = 2.5  # INCREASED lift
+				var force: float = 25.0  # INCREASED power
+				print("MIDFIELDER SHOOTING! Distance to goal: ", distance_to_goal, " Angle: ", angle_cos)
+				return {"action": "kick", "force": force, "direction": shot_dir}
+		
 		# Fuzzy passing to best teammate with fuzzy force selection
 		var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")

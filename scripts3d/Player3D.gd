@@ -7,9 +7,14 @@ class_name Player3D
 @export var grid_cell_size: float = 4.0
 
 var ball: CharacterBody3D
-var speed: float = 9.5
+var speed: float = 12.0  # INCREASED from 9.5 for faster movement
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
+
+# Attack mode for forward players - allows breaking grid constraints
+var attack_mode: bool = false
+var attack_mode_timer: float = 0.0
+var max_attack_mode_time: float = 15.0  # INCREASED for longer attacks
 
 # Optional per-player grid bounds (assigned by team manager)
 var grid_bounds_enabled: bool = false
@@ -68,6 +73,16 @@ func set_staging_target(target: Vector3) -> void:
 	staging_target = target
 
 func _physics_process(_delta: float) -> void:
+	# Update attack mode timer
+	if attack_mode:
+		attack_mode_timer += _delta
+		if attack_mode_timer > max_attack_mode_time:
+			attack_mode = false
+			attack_mode_timer = 0.0
+	
+	# Check if forward players should enter attack mode
+	_check_attack_mode()
+	
 	# Handle staging first with timeout protection
 	if is_staging:
 		staging_timeout += _delta
@@ -140,10 +155,13 @@ func _physics_process(_delta: float) -> void:
 	var margin: float = 0.3
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
-	# Enforce per-player grid bounds strictly (except rover/GK who won't have bounds set)
-	if grid_bounds_enabled:
+	
+	# CRITICAL FIX: Much more flexible grid constraints for goal scoring
+	# Allow ALL players to break grid when very close to opponent goal
+	if grid_bounds_enabled and not _should_ignore_grid_for_goal():
 		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
 		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
+	
 	if clamped_x != global_position.x or clamped_z != global_position.z:
 		global_position.x = clamped_x
 		global_position.z = clamped_z
@@ -166,13 +184,13 @@ func _apply_decision(decision: Dictionary) -> void:
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
 		var my_group_name := "team_a" if is_team_a else "team_b"
 		var my_team_rank: int = _team_rank_to_ball(my_group_name)
-		var direct_chase: bool = (to_ball.length() < 6.0) or (to_ball.length() < 20.0 and my_team_rank > 0 and my_team_rank <= 3)
+		var direct_chase: bool = (to_ball.length() < 8.0) or (to_ball.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
 		if direct_chase:
 			var move_vec: Vector3 = to_ball
 			move_vec.y = 0.0
 			var mult: float = 1.0
-			if to_ball.length() < 8.0:
-				mult = 1.12
+			if to_ball.length() < 12.0:  # INCREASED from 8.0
+				mult = 1.25  # INCREASED speed multiplier
 			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
@@ -268,7 +286,8 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	# If in possession: let the two closest teammates in this grid chase/act
 	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
-		if dist_to_ball < 1.6:
+		# INCREASED shooting range for grid tactics
+		if dist_to_ball < 4.0:  # INCREASED from 1.6
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
 			# Aim away from goalkeeper within grid tactic too
 			var keeper_z: float = 0.0
@@ -283,7 +302,9 @@ func _apply_grid_tactics_if_applicable() -> bool:
 				var away_sign: float = 1.0 if (ball.global_transform.origin.z < keeper_z) else -1.0
 				aim_z = clamp(keeper_z + away_sign * 6.0, -field_half_height_z + 6.0, field_half_height_z - 6.0)
 			var shoot_dir: Vector3 = Vector3(target_x, 0.0, aim_z) - ball.global_transform.origin
-			ball.kick(shoot_dir, 19.0)
+			# ENHANCED shot power and lift
+			shoot_dir.y = 2.0  # INCREASED lift
+			ball.kick(shoot_dir, 25.0)  # INCREASED power from 19.0
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", is_team_a)
 			velocity = Vector3.ZERO
@@ -422,3 +443,56 @@ func _wall_hug_tangent() -> Vector3:
 	else:
 		# Near horizontal wall → move along X
 		return Vector3((ball.global_transform.origin.x - pos.x), 0, 0).normalized()
+
+# Attack mode and grid flexibility functions
+func _check_attack_mode() -> void:
+	if not ball or not _is_forward_player():
+		return
+	
+	# MUCH more aggressive attack mode activation
+	var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+	var ball_in_opponent_half: bool = (is_team_a and ball.global_transform.origin.x < 10.0) or (not is_team_a and ball.global_transform.origin.x > -10.0)  # EXPANDED zone
+	var close_to_ball: bool = global_transform.origin.distance_to(ball.global_transform.origin) < 30.0  # INCREASED from 20.0
+	var my_team_has_ball: bool = _my_team_has_possession()
+	
+	# Enter attack mode for forward players when conditions are met
+	if ball_in_opponent_half and close_to_ball and my_team_has_ball:
+		if not attack_mode:
+			attack_mode = true
+			attack_mode_timer = 0.0
+			print("Forward player entering attack mode: ", role)
+
+# CRITICAL: Much more flexible grid override for goal scoring
+func _should_ignore_grid_for_goal() -> bool:
+	if not ball:
+		return false
+	
+	# Allow ALL players to break grid when ball is close to ANY goal
+	var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+	var ball_distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
+	var player_distance_to_ball: float = global_transform.origin.distance_to(ball.global_transform.origin)
+	
+	# MUCH more lenient conditions for grid breaking
+	if ball_distance_to_goal < 35.0 and player_distance_to_ball < 15.0:  # INCREASED ranges
+		return true
+	
+	# Also allow grid breaking in attack mode for forward players
+	if _is_forward_player() and attack_mode:
+		return true
+	
+	# Allow grid breaking when very close to ball regardless of position
+	if player_distance_to_ball < 5.0:
+		return true
+	
+	return false
+
+func _is_forward_player() -> bool:
+	# Forward players who can break grid constraints
+	return role == "striker" or role == "midfielder"
+
+func _my_team_has_possession() -> bool:
+	if not ball or not ball.has_method("get"):
+		return false
+	
+	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
+	return last_touch_a == is_team_a
