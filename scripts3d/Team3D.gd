@@ -40,40 +40,8 @@ func _spawn_players() -> void:
 		p.setup(ball, ai)
 		# tag by group for fuzzy pass
 		p.add_to_group("team_a" if is_team_a else "team_b")
-		# Set kit colors: Outfield (A: blue, B: red). Goalkeeper: high-visibility yellow/green
-		var target_color := Color(0.2, 0.5, 1.0) if is_team_a else Color(1.0, 0.3, 0.3)
-		if roles[i] == "goalkeeper":
-			# Common GK kits are bright for visibility (inspired by football uniforms)
-			target_color = Color(1.0, 0.9, 0.2)
-		for mesh_part in p.get_children():
-			if mesh_part is MeshInstance3D:
-				var mesh: MeshInstance3D = mesh_part
-				if mesh.mesh:
-					# Try active override, then ArrayMesh surface material, then PrimitiveMesh material
-					var existing: Material = mesh.get_active_material(0)
-					if existing == null:
-						if mesh.mesh is ArrayMesh:
-							existing = (mesh.mesh as ArrayMesh).surface_get_material(0)
-						elif mesh.mesh is PrimitiveMesh:
-							existing = (mesh.mesh as PrimitiveMesh).material
-					# Duplicate if we found one; otherwise create a fresh StandardMaterial3D
-					var mat: Material = null
-					if existing != null:
-						mat = existing.duplicate()
-					else:
-						mat = StandardMaterial3D.new()
-					# Apply kit color and set override (fallback to material_override if no surfaces)
-					if mat is StandardMaterial3D:
-						mat.albedo_color = target_color
-					var applied := false
-					if mesh.mesh is ArrayMesh:
-						var sc: int = (mesh.mesh as ArrayMesh).get_surface_count()
-						if sc > 0:
-							mesh.set_surface_override_material(0, mat)
-							applied = true
-					if not applied:
-						# Fallback for PrimitiveMesh or meshes without surfaces
-						mesh.material_override = mat
+		# Team appearance is now handled by Player3D.setup_team_appearance() 
+		# which is called from Player3D.setup()
 		# Assign per-player grid bounds and staging, except rover and GK
 		if roles[i] == "goalkeeper":
 			# Keep GK near own goal; no grid constraint

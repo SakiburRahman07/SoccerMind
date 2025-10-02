@@ -11,6 +11,12 @@ var speed: float = 8.0  # INCREASED from 9.5 for faster movement
 var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
+# Animation system variables
+@onready var animation_player: AnimationPlayer = $AnimationPlayer
+var current_animation: String = "idle"
+var animation_blend_time: float = 0.1
+var kick_animation_playing: bool = false
+
 # Attack mode for forward players - allows breaking grid constraints
 var attack_mode: bool = false
 var attack_mode_timer: float = 0.0
@@ -56,6 +62,8 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	# Initialize grid at current position
 	current_grid = _world_to_grid(global_transform.origin)
 	target_grid = current_grid
+	# Setup team appearance
+	setup_team_appearance()
 
 func set_home_position(pos: Vector3) -> void:
 	home_position = pos
@@ -149,6 +157,9 @@ func _physics_process(_delta: float) -> void:
 				if to_ball.length() > 0.01:
 					velocity = to_ball.normalized() * speed * 0.8
 					move_and_slide()
+	# Update animations based on player state
+	update_animation()
+	
 	# Keep player locked to pitch plane
 	global_position.y = 1.0
 	# Relaxed bounds to allow slight overlap near walls
@@ -253,6 +264,8 @@ func _apply_decision(decision: Dictionary) -> void:
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
+		# Trigger kick animation
+		play_kick_animation()
 		velocity = Vector3.ZERO
 		move_and_slide()
 	else:
@@ -307,6 +320,8 @@ func _apply_grid_tactics_if_applicable() -> bool:
 			ball.kick(shoot_dir, 25.0)  # INCREASED power from 19.0
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", is_team_a)
+			# Trigger kick animation
+			play_kick_animation()
 			velocity = Vector3.ZERO
 			move_and_slide()
 		else:
@@ -496,3 +511,78 @@ func _my_team_has_possession() -> bool:
 	
 	var last_touch_a: bool = bool(ball.get("last_touch_team_a"))
 	return last_touch_a == is_team_a
+
+# ==========================================
+# ANIMATION AND APPEARANCE SYSTEM
+# ==========================================
+
+func setup_team_appearance() -> void:
+	"""Setup team-specific jersey colors and materials"""
+	if not has_node("PlayerModel"):
+		return
+		
+	var player_model = $PlayerModel
+	var jersey_material = StandardMaterial3D.new()
+	
+	# Set team colors - special handling for goalkeepers
+	if role == "goalkeeper":
+		# Goalkeepers get bright yellow/green for visibility
+		jersey_material.albedo_color = Color(1.0, 0.9, 0.2, 1)  # Bright yellow
+	elif is_team_a:
+		jersey_material.albedo_color = Color(0.2, 0.4, 0.9, 1)  # Blue for Team A
+	else:
+		jersey_material.albedo_color = Color(0.9, 0.2, 0.2, 1)  # Red for Team B
+	
+	# Apply jersey material to torso and upper arms
+	if player_model.has_node("Torso"):
+		player_model.get_node("Torso").material_override = jersey_material
+	
+	if player_model.has_node("LeftArm/UpperArm"):
+		player_model.get_node("LeftArm/UpperArm").material_override = jersey_material
+		
+	if player_model.has_node("RightArm/UpperArm"):
+		player_model.get_node("RightArm/UpperArm").material_override = jersey_material
+
+func update_animation() -> void:
+	"""Update player animations based on current state"""
+	if not animation_player or kick_animation_playing:
+		return
+		
+	var new_animation = "idle"
+	var movement_threshold = 0.5
+	
+	# Determine animation based on player state
+	if velocity.length() > movement_threshold:
+		new_animation = "running"
+	else:
+		new_animation = "idle"
+	
+	# Only change animation if it's different from current
+	if new_animation != current_animation:
+		current_animation = new_animation
+		if animation_player.has_animation(current_animation):
+			animation_player.play(current_animation, animation_blend_time)
+
+func play_kick_animation() -> void:
+	"""Play kicking animation when player kicks the ball"""
+	if not animation_player:
+		return
+		
+	kick_animation_playing = true
+	current_animation = "kicking"
+	
+	if animation_player.has_animation("kicking"):
+		animation_player.play("kicking")
+		# Connect to animation finished signal to return to normal animations
+		if not animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.connect(_on_kick_animation_finished)
+
+func _on_kick_animation_finished(animation_name: String) -> void:
+	"""Called when kick animation finishes"""
+	if animation_name == "kicking":
+		kick_animation_playing = false
+		# Disconnect the signal to avoid multiple connections
+		if animation_player.animation_finished.is_connected(_on_kick_animation_finished):
+			animation_player.animation_finished.disconnect(_on_kick_animation_finished)
+		# Return to appropriate animation based on current state
+		update_animation()

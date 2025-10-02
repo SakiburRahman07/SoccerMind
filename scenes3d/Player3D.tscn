@@ -1,49 +1,286 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=25 format=3 uid="uid://bqkgvwj8xqxw8"]
 
 [ext_resource type="Script" path="res://scripts3d/Player3D.gd" id="1_script"]
 
-[sub_resource type="StandardMaterial3D" id="1"]
-albedo_color = Color(0.2, 0.7, 1, 1)
-
-[sub_resource type="CapsuleMesh" id="2"]
-material = SubResource("1")
+[sub_resource type="CapsuleShape3D" id="collision_shape"]
 radius = 0.35
 height = 1.9
 
-[sub_resource type="CapsuleShape3D" id="3"]
-radius = 0.35
-height = 1.9
-
-[sub_resource type="StandardMaterial3D" id="4_head_mat"]
+[sub_resource type="StandardMaterial3D" id="skin_material"]
 albedo_color = Color(0.95, 0.82, 0.7, 1)
 
-[sub_resource type="SphereMesh" id="5_head_mesh"]
-radius = 0.22
-height = 0.0
-material = SubResource("4_head_mat")
+[sub_resource type="StandardMaterial3D" id="jersey_material_a"]
+albedo_color = Color(0.2, 0.4, 0.9, 1)
 
-[sub_resource type="StandardMaterial3D" id="6_shorts_mat"]
-albedo_color = Color(0.05, 0.05, 0.08, 1)
+[sub_resource type="StandardMaterial3D" id="jersey_material_b"]
+albedo_color = Color(0.9, 0.2, 0.2, 1)
 
-[sub_resource type="BoxMesh" id="7_shorts_mesh"]
-size = Vector3(0.6, 0.3, 0.4)
-material = SubResource("6_shorts_mat")
+[sub_resource type="StandardMaterial3D" id="shorts_material"]
+albedo_color = Color(0.1, 0.1, 0.15, 1)
+
+[sub_resource type="StandardMaterial3D" id="socks_material"]
+albedo_color = Color(0.9, 0.9, 0.9, 1)
+
+[sub_resource type="StandardMaterial3D" id="boots_material"]
+albedo_color = Color(0.05, 0.05, 0.05, 1)
+
+[sub_resource type="SphereMesh" id="head_mesh"]
+radius = 0.18
+height = 0.36
+
+[sub_resource type="CylinderMesh" id="neck_mesh"]
+top_radius = 0.08
+bottom_radius = 0.08
+height = 0.15
+
+[sub_resource type="BoxMesh" id="torso_mesh"]
+size = Vector3(0.5, 0.8, 0.25)
+
+[sub_resource type="CylinderMesh" id="upper_arm_mesh"]
+top_radius = 0.08
+bottom_radius = 0.08
+height = 0.35
+
+[sub_resource type="CylinderMesh" id="lower_arm_mesh"]
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.3
+
+[sub_resource type="SphereMesh" id="hand_mesh"]
+radius = 0.08
+height = 0.16
+
+[sub_resource type="CylinderMesh" id="upper_leg_mesh"]
+top_radius = 0.12
+bottom_radius = 0.1
+height = 0.45
+
+[sub_resource type="CylinderMesh" id="lower_leg_mesh"]
+top_radius = 0.08
+bottom_radius = 0.08
+height = 0.4
+
+[sub_resource type="BoxMesh" id="foot_mesh"]
+size = Vector3(0.12, 0.08, 0.25)
+
+[sub_resource type="Animation" id="idle_animation"]
+resource_name = "idle"
+length = 2.0
+loop_mode = 1
+tracks/0/type = "position_3d"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("PlayerModel/Torso")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = PackedFloat32Array(0, 1, 0, 0.4, 0, 1, 1, 0, 0.42, 0, 2, 1, 0, 0.4, 0)
+
+[sub_resource type="Animation" id="running_animation"]
+resource_name = "running"
+length = 0.8
+loop_mode = 1
+tracks/0/type = "rotation_3d"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("PlayerModel/LeftLeg")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1, 0.2, 1, 0.5, 0, 0, 0.866025, 0.4, 1, 0, 0, 0, 1, 0.6, 1, -0.5, 0, 0, 0.866025, 0.8, 1, 0, 0, 0, 1)
+tracks/1/type = "rotation_3d"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("PlayerModel/RightLeg")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = PackedFloat32Array(0, 1, -0.5, 0, 0, 0.866025, 0.2, 1, 0, 0, 0, 1, 0.4, 1, 0.5, 0, 0, 0.866025, 0.6, 1, 0, 0, 0, 1, 0.8, 1, -0.5, 0, 0, 0.866025)
+tracks/2/type = "rotation_3d"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("PlayerModel/LeftArm")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = PackedFloat32Array(0, 1, 0.3, 0, 0, 0.955337, 0.2, 1, 0, 0, 0, 1, 0.4, 1, -0.3, 0, 0, 0.955337, 0.6, 1, 0, 0, 0, 1, 0.8, 1, 0.3, 0, 0, 0.955337)
+tracks/3/type = "rotation_3d"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("PlayerModel/RightArm")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = PackedFloat32Array(0, 1, -0.3, 0, 0, 0.955337, 0.2, 1, 0, 0, 0, 1, 0.4, 1, 0.3, 0, 0, 0.955337, 0.6, 1, 0, 0, 0, 1, 0.8, 1, -0.3, 0, 0, 0.955337)
+
+[sub_resource type="Animation" id="kicking_animation"]
+resource_name = "kicking"
+length = 0.6
+tracks/0/type = "rotation_3d"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("PlayerModel/RightLeg")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1, 0.2, 1, -0.8, 0, 0, 0.6, 0.4, 1, 0.6, 0, 0, 0.8, 0.6, 1, 0, 0, 0, 1)
+tracks/1/type = "rotation_3d"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("PlayerModel/LeftArm")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1, 0.2, 1, 0.4, 0, 0, 0.92, 0.6, 1, 0, 0, 0, 1)
+tracks/2/type = "rotation_3d"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("PlayerModel/RightArm")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1, 0.2, 1, -0.4, 0, 0, 0.92, 0.6, 1, 0, 0, 0, 1)
+
+[sub_resource type="Animation" id="RESET"]
+length = 0.001
+tracks/0/type = "position_3d"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("PlayerModel/Torso")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = PackedFloat32Array(0, 1, 0, 0.4, 0)
+tracks/1/type = "rotation_3d"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("PlayerModel/LeftLeg")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1)
+tracks/2/type = "rotation_3d"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("PlayerModel/RightLeg")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1)
+tracks/3/type = "rotation_3d"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("PlayerModel/LeftArm")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1)
+tracks/4/type = "rotation_3d"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("PlayerModel/RightArm")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = PackedFloat32Array(0, 1, 0, 0, 0, 1)
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_1"]
+_data = {
+"RESET": SubResource("RESET"),
+"idle": SubResource("idle_animation"),
+"kicking": SubResource("kicking_animation"),
+"running": SubResource("running_animation")
+}
 
 [node name="Player3D" type="CharacterBody3D"]
 script = ExtResource("1_script")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-mesh = SubResource("2")
-
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
-shape = SubResource("3")
+shape = SubResource("collision_shape")
 
-[node name="Head" type="MeshInstance3D" parent="."]
-mesh = SubResource("5_head_mesh")
-position = Vector3(0, 1.25, 0)
+[node name="PlayerModel" type="Node3D" parent="."]
 
-[node name="Shorts" type="MeshInstance3D" parent="."]
-mesh = SubResource("7_shorts_mesh")
-position = Vector3(0, 0.5, 0)
+[node name="Head" type="MeshInstance3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+mesh = SubResource("head_mesh")
+surface_material_override/0 = SubResource("skin_material")
 
+[node name="Neck" type="MeshInstance3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
+mesh = SubResource("neck_mesh")
+surface_material_override/0 = SubResource("skin_material")
 
+[node name="Torso" type="MeshInstance3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+mesh = SubResource("torso_mesh")
+surface_material_override/0 = SubResource("jersey_material_a")
+
+[node name="LeftArm" type="Node3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, 0.65, 0)
+
+[node name="UpperArm" type="MeshInstance3D" parent="PlayerModel/LeftArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.175, 0)
+mesh = SubResource("upper_arm_mesh")
+surface_material_override/0 = SubResource("jersey_material_a")
+
+[node name="LowerArm" type="MeshInstance3D" parent="PlayerModel/LeftArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+mesh = SubResource("lower_arm_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="Hand" type="MeshInstance3D" parent="PlayerModel/LeftArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.75, 0)
+mesh = SubResource("hand_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="RightArm" type="Node3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 0.65, 0)
+
+[node name="UpperArm" type="MeshInstance3D" parent="PlayerModel/RightArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.175, 0)
+mesh = SubResource("upper_arm_mesh")
+surface_material_override/0 = SubResource("jersey_material_a")
+
+[node name="LowerArm" type="MeshInstance3D" parent="PlayerModel/RightArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+mesh = SubResource("lower_arm_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="Hand" type="MeshInstance3D" parent="PlayerModel/RightArm"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.75, 0)
+mesh = SubResource("hand_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="LeftLeg" type="Node3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15, -0.1, 0)
+
+[node name="UpperLeg" type="MeshInstance3D" parent="PlayerModel/LeftLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
+mesh = SubResource("upper_leg_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="Shorts" type="MeshInstance3D" parent="PlayerModel/LeftLeg"]
+transform = Transform3D(1.2, 0, 0, 0, 0.6, 0, 0, 0, 1.2, 0.075, 0.1, 0)
+mesh = SubResource("torso_mesh")
+surface_material_override/0 = SubResource("shorts_material")
+
+[node name="LowerLeg" type="MeshInstance3D" parent="PlayerModel/LeftLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.65, 0)
+mesh = SubResource("lower_leg_mesh")
+surface_material_override/0 = SubResource("socks_material")
+
+[node name="Foot" type="MeshInstance3D" parent="PlayerModel/LeftLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, 0.08)
+mesh = SubResource("foot_mesh")
+surface_material_override/0 = SubResource("boots_material")
+
+[node name="RightLeg" type="Node3D" parent="PlayerModel"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, -0.1, 0)
+
+[node name="UpperLeg" type="MeshInstance3D" parent="PlayerModel/RightLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.225, 0)
+mesh = SubResource("upper_leg_mesh")
+surface_material_override/0 = SubResource("skin_material")
+
+[node name="LowerLeg" type="MeshInstance3D" parent="PlayerModel/RightLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.65, 0)
+mesh = SubResource("lower_leg_mesh")
+surface_material_override/0 = SubResource("socks_material")
+
+[node name="Foot" type="MeshInstance3D" parent="PlayerModel/RightLeg"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.9, 0.08)
+mesh = SubResource("foot_mesh")
+surface_material_override/0 = SubResource("boots_material")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("AnimationLibrary_1")
+}
+autoplay = "idle"
