@@ -317,6 +317,7 @@ text = "[b]Camera Controls:[/b]
 [color=cyan]R[/color] - Manual restart
 [color=cyan]Space[/color] - Pause/Resume
 [color=cyan]H[/color] - Toggle this help
+[color=cyan]T[/color] - Test score update
 
 [b]UI Panels:[/b]
 [color=cyan]S[/color] - Toggle stats panel

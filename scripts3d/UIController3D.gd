@@ -288,13 +288,25 @@ func _input(event: InputEvent) -> void:
 				toggle_minimap()
 			KEY_SPACE:
 				_on_pause_pressed()
+			KEY_T:
+				# Test score update
+				_test_score_update()
 
 # Public methods for game manager to call
 func update_score(score_a: int, score_b: int) -> void:
+	print("UIController: Updating score display - A:%d B:%d" % [score_a, score_b])
+	
 	if team_a_score:
 		team_a_score.text = str(score_a)
+		print("UIController: Set Team A score to: ", team_a_score.text)
+	else:
+		print("UIController: Warning - team_a_score label not found")
+		
 	if team_b_score:
 		team_b_score.text = str(score_b)
+		print("UIController: Set Team B score to: ", team_b_score.text)
+	else:
+		print("UIController: Warning - team_b_score label not found")
 	
 	# Update statistics
 	team_a_stats.goals = score_a
@@ -324,3 +336,10 @@ func toggle_stats_panel() -> void:
 func toggle_minimap() -> void:
 	if minimap:
 		minimap.visible = !minimap.visible
+
+func _test_score_update() -> void:
+	# Test function to manually update score (press T)
+	var test_a = randi() % 5
+	var test_b = randi() % 5
+	print("🧪 Testing score update: A:%d B:%d" % [test_a, test_b])
+	update_score(test_a, test_b)

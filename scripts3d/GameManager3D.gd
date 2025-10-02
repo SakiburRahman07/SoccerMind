@@ -83,24 +83,26 @@ func _check_for_goal(pos: Vector3) -> bool:
 	
 	# Left goal (X < -58)
 	if pos.x < -58.0 and abs(pos.z) < goal_width / 2.0:
-		print("GOAL! Ball entered left goal at position: ", pos)
-		# Team A scores (attacking left goal)
-		score_a += 1
-		last_scorer_team_a = true
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
+		print("⚽ GOAL! Ball entered left goal at position: ", pos)
+		print("⚽ Team B scores! (attacking left goal)")
+		# Team B scores (attacking left goal)
+		score_b += 1
+		last_scorer_team_a = false
+		print("⚽ Updated scores - A:", score_a, " B:", score_b)
 		_update_score_ui()
+		_reset_kickoff()
 		return true
 	
 	# Right goal (X > 58)
 	if pos.x > 58.0 and abs(pos.z) < goal_width / 2.0:
-		print("GOAL! Ball entered right goal at position: ", pos)
-		# Team B scores (attacking right goal)
-		score_b += 1
-		last_scorer_team_a = false
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
+		print("⚽ GOAL! Ball entered right goal at position: ", pos)
+		print("⚽ Team A scores! (attacking right goal)")
+		# Team A scores (attacking right goal)
+		score_a += 1
+		last_scorer_team_a = true
+		print("⚽ Updated scores - A:", score_a, " B:", score_b)
 		_update_score_ui()
+		_reset_kickoff()
 		return true
 	
 	return false
@@ -304,6 +306,13 @@ func _on_goal_entered(body: Node) -> void:
 func _update_score_ui() -> void:
 	if score_label:
 		score_label.text = "A %d - %d B" % [score_a, score_b]
+	
+	# Trigger goal celebration effects
+	var particle_effects = get_node_or_null("SimpleParticleEffects")
+	if particle_effects and particle_effects.has_method("trigger_goal_celebration"):
+		# Determine which goal was scored into based on the last scorer
+		var is_left_goal_scored = not last_scorer_team_a  # If Team A scored, it was into the right goal
+		particle_effects.trigger_goal_celebration(is_left_goal_scored)
 
 func _detect_and_recover_from_stall(delta: float) -> void:
 	if not ball:

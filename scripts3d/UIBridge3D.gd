@@ -16,6 +16,9 @@ var current_game_phase: String = "Kickoff"
 func _ready() -> void:
 	# Wait for scene to be fully loaded
 	call_deferred("_initialize_bridge")
+	# Add extra delay to ensure UI is ready
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 func _initialize_bridge() -> void:
 	# Find game manager and UI controller
@@ -52,15 +55,15 @@ func _process(_delta: float) -> void:
 	_update_ui_state()
 
 func _check_score_updates() -> void:
-	if not game_manager.has_method("get") and not game_manager.has_signal("score_changed"):
-		# Read score directly from game manager variables
-		var current_score_a = game_manager.get("score_a") if game_manager.has_method("get") else game_manager.score_a
-		var current_score_b = game_manager.get("score_b") if game_manager.has_method("get") else game_manager.score_b
-		
-		if current_score_a != last_score_a or current_score_b != last_score_b:
-			ui_controller.update_score(current_score_a, current_score_b)
-			last_score_a = current_score_a
-			last_score_b = current_score_b
+	# Read score directly from game manager variables
+	var current_score_a = game_manager.score_a
+	var current_score_b = game_manager.score_b
+	
+	if current_score_a != last_score_a or current_score_b != last_score_b:
+		ui_controller.update_score(current_score_a, current_score_b)
+		last_score_a = current_score_a
+		last_score_b = current_score_b
+		print("UI Bridge: Updated scoreboard - A:%d B:%d" % [current_score_a, current_score_b])
 
 func _check_game_phase_updates() -> void:
 	if not game_manager:
