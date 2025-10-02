@@ -21,13 +21,13 @@ func decide() -> Dictionary:
 	var dir: Vector3 = (desire + keep_shape).normalized()
 	var dist: float = to_ball.length()
 	
-	# MASSIVELY increased shooting range for guaranteed goals
-	if dist < 12.0:  # INCREASED from 6.0
+	# BALANCED shooting range for competitive gameplay
+	if dist < 6.0:  # REDUCED to balanced range
 		# Check if we're in a good shooting position
 		var distance_to_goal: float = abs(ball.global_transform.origin.x - target_x)
 		
-		# ALWAYS shoot if close to goal - no passing logic
-		if distance_to_goal < 40.0:  # INCREASED range
+		# BALANCED shooting decision - consider passing too
+		if distance_to_goal < 25.0:  # REDUCED range for balance
 			# Aim away from goalkeeper position (far post logic)
 			var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
 			var keeper_z: float = 0.0
@@ -48,11 +48,11 @@ func decide() -> Dictionary:
 				aim_z = clamp(ball.global_transform.origin.z + randf_range(-8.0, 8.0), -30.0, 30.0)
 			
 			var shot_dir: Vector3 = Vector3(target_x, 0.0, aim_z) - ball.global_transform.origin
-			# Add significant lift to beat goalkeeper
-			shot_dir.y = 3.0  # INCREASED lift
+			# BALANCED lift for accuracy
+			shot_dir.y = 1.5  # REDUCED lift for balance
 			
-			# MAXIMUM shot power for guaranteed goals
-			var force: float = 30.0  # MAXIMUM power
+			# BALANCED shot power
+			var force: float = 20.0  # REDUCED power for balance
 			print("STRIKER SHOOTING! Distance to goal: ", distance_to_goal, " Force: ", force)
 			return {"action": "kick", "force": force, "direction": shot_dir}
 		
@@ -70,15 +70,15 @@ func decide() -> Dictionary:
 		var near: float = clamp(1.0 - dist / 10.0, 0.0, 1.0)
 		var aligned: float = clamp((angle_cos + 1.0) * 0.5, 0.0, 1.0)
 		
-		# HEAVILY biased toward shooting
-		var shoot_w: float = 0.9  # Almost always shoot
-		var pass_w: float = 0.1   # Rarely pass
+		# BALANCED shooting vs passing decision
+		var shoot_w: float = 0.6  # REDUCED shooting bias
+		var pass_w: float = 0.4   # INCREASED passing option
 		
 		if shoot_w >= pass_w:
-			# Shoot with maximum power
+			# BALANCED shot power
 			var shot_dir2: Vector3 = to_goal
-			shot_dir2.y = 2.5
-			var force2: float = 28.0
+			shot_dir2.y = 1.8  # REDUCED lift
+			var force2: float = 22.0  # REDUCED power
 			return {"action": "kick", "force": force2, "direction": shot_dir2}
 		else:
 			# Use fuzzy teammate selection for a pass
