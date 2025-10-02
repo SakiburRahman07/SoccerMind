@@ -6,15 +6,15 @@ var players: Array[CharacterBody3D] = []
 var is_team_a: bool = true
 var ball: CharacterBody3D
 
-# 3x3 grid over field for player assignment
-const GRID_COLS := 3
+# Simplified 2x3 grid for 6-player formation
+const GRID_COLS := 2
 const GRID_ROWS := 3
 @export var field_half_width_x: float = 60.0
 @export var field_half_height_z: float = 35.0
 var grid_cells: Array[Dictionary] = [] # each: {min_x,max_x,min_z,max_z,center:Vector3}
 
 # Choose one non-GK player to be a rover (free to move all over field)
-const ROVER_INDEX_DEFAULT := 10 # by default, last role (striker)
+const ROVER_INDEX_DEFAULT := 5 # striker will be the rover
 
 func configure_team(_is_team_a: bool, _ball: CharacterBody3D) -> void:
 	is_team_a = _is_team_a
@@ -120,53 +120,54 @@ func _compute_grid_cells() -> void:
 			})
 
 func _grid_index_for_player(role: String, index: int) -> int:
-	# Deterministic fixed mapping of 9 grid players to 3x3 cells (row-major)
-	# Exclude GK (index 0) and rover (default index 10)
+	# Simplified mapping for 6 players to 2x3 grid (6 cells)
+	# Exclude GK (index 0) and rover (index 5)
 	var mapping: Array[int] = [
-		1, 2, 3,
-		4, 5, 6,
-		7, 8, 9
+		1, 2,  # defenders (back row)
+		3, 4,  # midfielders (middle row) 
+		5, 0   # striker + unused (front row)
 	]
-	# Convert player index to mapping position (skip rover if needed)
+	# Convert player index to grid position
 	if index == 0 or _is_rover(index):
-		return 0
+		return 0  # GK and rover don't use grid
 	var pos := index
-	if index > 9:
-		pos = 9
+	if index >= 6:
+		pos = 5
 	return (pos - 1) % (GRID_COLS * GRID_ROWS)
 
 func _is_rover(index: int) -> bool:
-	# Default rover is the last role (index 10). If needed, adapt by role name.
+	# Striker (index 5) is the rover
 	return index == ROVER_INDEX_DEFAULT
 
 func _formation_roles() -> Array:
-	# 4-4-2 with GK
+	# 2-2-1 formation with GK (6 players total)
 	return [
 		"goalkeeper",
-		"defender","defender","defender","defender",
-		"midfielder","midfielder","midfielder","midfielder",
-		"striker","striker"
+		"defender", "defender",
+		"midfielder", "midfielder", 
+		"striker"
 	]
 
 func _formation_positions() -> Array:
-	# Flip halves: Team A now starts on +X, Team B on -X
+	# 6-player formation positions
 	var team_dir := -1.0 if is_team_a else 1.0
-	var base_x := -45.0 * team_dir
+	var base_x := -50.0 * team_dir
+	var positions: Array = []
+	
 	# GK
-	var positions: Array = [ Vector3(base_x, 0, 0) ]
-	# Back four
-	positions.append(Vector3(base_x + 10.0 * team_dir, 0, -16))
-	positions.append(Vector3(base_x + 10.0 * team_dir, 0, -5))
-	positions.append(Vector3(base_x + 10.0 * team_dir, 0, 5))
-	positions.append(Vector3(base_x + 10.0 * team_dir, 0, 16))
-	# Mid four
-	positions.append(Vector3(base_x + 28.0 * team_dir, 0, -16))
-	positions.append(Vector3(base_x + 28.0 * team_dir, 0, -5))
-	positions.append(Vector3(base_x + 28.0 * team_dir, 0, 5))
-	positions.append(Vector3(base_x + 28.0 * team_dir, 0, 16))
-	# Two strikers
-	positions.append(Vector3(base_x + 45.0 * team_dir, 0, -6))
-	positions.append(Vector3(base_x + 45.0 * team_dir, 0, 6))
+	positions.append(Vector3(base_x, 0, 0))
+	
+	# Two defenders (back line)
+	positions.append(Vector3(base_x + 15.0 * team_dir, 0, -12))
+	positions.append(Vector3(base_x + 15.0 * team_dir, 0, 12))
+	
+	# Two midfielders (middle line)
+	positions.append(Vector3(base_x + 35.0 * team_dir, 0, -12))
+	positions.append(Vector3(base_x + 35.0 * team_dir, 0, 12))
+	
+	# One striker (front line)
+	positions.append(Vector3(base_x + 50.0 * team_dir, 0, 0))
+	
 	return positions
 
 func _make_ai_for_role(role: String, index: int) -> Node:
@@ -174,7 +175,7 @@ func _make_ai_for_role(role: String, index: int) -> Node:
 		"goalkeeper":
 			return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
 		"defender":
-			# Mix classic and DFS defenders
+			# Alternate between classic and DFS defenders
 			return load("res://scripts3d/ai/Defender3DDFS.gd" if (index % 2 == 1) else "res://scripts3d/ai/Defender3D.gd").new()
 		"midfielder":
 			# Rotate between Greedy, BFS, and AlphaBeta
@@ -203,7 +204,7 @@ func reset_positions(_kickoff_left: bool) -> void:
 			var rover_x := (-field_half_width_x * 0.2) if is_team_a else (field_half_width_x * 0.2)
 			p.global_transform.origin = Vector3(rover_x, 0.0, 0.0)
 			continue
-		# Grid players: move to their grid’s center with slight side offset
+		# Grid players: move to their grid's center with slight side offset
 		if p.has_method("set_grid_bounds") and grid_cells.size() == GRID_COLS * GRID_ROWS:
 			var cell: Dictionary = grid_cells[_grid_index_for_player(p.role, i)]
 			var side_offset_x := -2.0 if is_team_a else 2.0
