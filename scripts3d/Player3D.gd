@@ -263,6 +263,37 @@ func _apply_decision(decision: Dictionary) -> void:
 						resolved_force = result.get("force", force)
 						conflict_found = true
 						break
+		
+		# GOALKEEPER SAFETY CHECK: Prevent goalkeepers from kicking toward their own goal
+		if role == "goalkeeper":
+			var own_goal_x: float = field_half_width_x if is_team_a else -field_half_width_x
+			var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+			
+			# Calculate where the kick would go
+			var kick_target: Vector3 = ball.global_transform.origin + resolved_dir.normalized() * 10.0
+			var kick_target_x: float = kick_target.x
+			
+			# Check if kick is toward own goal (wrong direction)
+			var distance_to_own_goal: float = abs(kick_target_x - own_goal_x)
+			var distance_to_opponent_goal: float = abs(kick_target_x - opponent_goal_x)
+			
+			# If kicking closer to own goal than opponent goal, redirect!
+			if distance_to_own_goal < distance_to_opponent_goal:
+				print("⚠️ SAFETY REDIRECT: ", name, " correcting own-goal kick direction")
+				# Redirect toward opponent goal with high punt
+				var safe_direction: Vector3 = Vector3(opponent_goal_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
+				safe_direction.y = 12.0  # Very high clearance
+				resolved_dir = safe_direction
+				resolved_force = 32.0  # Strong clearance
+				print("✓ Redirected to x=", opponent_goal_x, " with very high punt")
+			
+			# ADDITIONAL CHECK: Ensure goalkeeper ALWAYS uses high kicks (minimum y=6.0)
+			if resolved_dir.y < 6.0:
+				print("⚠️ SAFETY: ", name, " kick too low (y=", resolved_dir.y, "), increasing to minimum y=8.0")
+				resolved_dir.y = 8.0  # Minimum high kick for goalkeepers
+				if resolved_force < 20.0:
+					resolved_force = 22.0  # Increase force for aerial kick
+		
 		# Execute kick with resolved outcome
 		ball.kick(resolved_dir, resolved_force)
 		# Record last touch team for restarts

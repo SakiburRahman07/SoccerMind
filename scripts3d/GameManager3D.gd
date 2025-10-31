@@ -80,6 +80,14 @@ func _process(delta: float) -> void:
 func _check_for_goal(pos: Vector3) -> bool:
 	# Check if ball is in goal area (X beyond ±58 and Z within goal width)
 	var goal_width: float = 12.0  # Goal is 12 units wide (from Goal3D.tscn)
+	var goal_height: float = 7.0  # Goal is 7 units tall (from Goal3D.tscn)
+	var max_goal_y: float = goal_height / 2.0  # 3.5 units from ground (center is at y=0, so top is at 3.5)
+	
+	# CRITICAL: Ball must be below crossbar to count as goal
+	# Ball position Y must be less than max_goal_y (3.5) to be valid
+	if pos.y > max_goal_y:
+		print("🚫 Ball over crossbar! Y=", pos.y, " (max: ", max_goal_y, ") - No goal")
+		return false
 	
 	# Left goal (X < -58)
 	if pos.x < -58.0 and abs(pos.z) < goal_width / 2.0:
