@@ -171,9 +171,28 @@ func _physics_process(_delta: float) -> void:
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
 	
+	# GOALKEEPER D-BOX ENFORCEMENT: Always keep goalkeeper in penalty area
+	if role == "goalkeeper":
+		var own_goal_x: float = 58.0 if is_team_a else -58.0
+		var penalty_depth: float = 12.0
+		var penalty_width: float = 12.0
+		
+		var gk_min_x: float
+		var gk_max_x: float
+		if is_team_a:
+			gk_min_x = own_goal_x - penalty_depth  # 46
+			gk_max_x = own_goal_x  # 58
+		else:
+			gk_min_x = own_goal_x  # -58
+			gk_max_x = own_goal_x + penalty_depth  # -46
+		
+		# HARD CLAMP to D-box for goalkeepers - overrides all other logic
+		clamped_x = clamp(clamped_x, gk_min_x, gk_max_x)
+		clamped_z = clamp(clamped_z, -penalty_width, penalty_width)
+	
 	# CRITICAL FIX: Much more flexible grid constraints for goal scoring
 	# Allow ALL players to break grid when very close to opponent goal
-	if grid_bounds_enabled and not _should_ignore_grid_for_goal():
+	if grid_bounds_enabled and not _should_ignore_grid_for_goal() and role != "goalkeeper":
 		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
 		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
 	
