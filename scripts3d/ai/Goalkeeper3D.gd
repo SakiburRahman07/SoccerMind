@@ -183,13 +183,19 @@ func _calculate_intercept_point(ball_pos: Vector3, ball_vel: Vector3, own_goal_x
 func _decide_emergency_clearance(ball_pos: Vector3, opponent_goal_x: float) -> Dictionary:
 	# High aerial clearance to safety - ALWAYS use high arc
 	var forward_direction: float = opponent_goal_x - ball_pos.x
+	
+	# SPECIAL FIX: For Team B, always kick forward (positive x direction)
+	if not player.is_team_a:
+		forward_direction = abs(forward_direction)  # Ensure positive direction
+	
 	var clear_direction: Vector3 = Vector3(forward_direction, 10.0, 0.0)
 	
 	# Add side variation to avoid center congestion
 	var side_sign: float = 1.0 if ball_pos.z > 0 else -1.0
 	clear_direction.z = side_sign * randf_range(10.0, 15.0)
 	
-	print("⚡ EMERGENCY CLEARANCE - HIGH AERIAL KICK!")
+	var team_name: String = "Team A" if player.is_team_a else "Team B"
+	print("⚡ ", team_name, " EMERGENCY CLEARANCE - HIGH AERIAL KICK! Direction x=", forward_direction)
 	return {"action": "kick", "force": 30.0, "direction": clear_direction}
 
 # Helper: Intelligent clearance decision when we have possession
@@ -231,6 +237,11 @@ func _long_punt_clearance(ball_pos: Vector3, opponent_goal_x: float) -> Dictiona
 	
 	# Calculate direction toward opponent half - MUST be at least to midfield
 	var forward_distance: float = opponent_goal_x - ball_pos.x
+	
+	# SPECIAL FIX: For Team B, always kick forward (positive x direction)
+	if not player.is_team_a:
+		forward_distance = abs(forward_distance)  # Ensure positive direction
+	
 	var punt_direction: Vector3 = Vector3(forward_distance, 0.0, 0.0)
 	
 	# ALWAYS use very high lift for long punt - minimum y=12
@@ -240,7 +251,7 @@ func _long_punt_clearance(ball_pos: Vector3, opponent_goal_x: float) -> Dictiona
 	var side_variation: float = randf_range(-8.0, 8.0)
 	punt_direction.z = side_variation
 	
-	print("   Direction: ", punt_direction.normalized())
+	print("   Direction x=", forward_distance, ", normalized: ", punt_direction.normalized())
 	print("   Force: 32.0 (LONG PUNT - HIGH ARC)")
 	
 	return {"action": "kick", "force": 32.0, "direction": punt_direction}
@@ -257,9 +268,13 @@ func _medium_punt_clearance(ball_pos: Vector3, opponent_goal_x: float) -> Dictio
 	var min_forward_distance: float = abs(opponent_goal_x - ball_pos.x) * 0.4  # At least 40% to opponent half
 	var forward_distance: float = max(midfield_target - ball_pos.x, min_forward_distance)
 	
+	# SPECIAL FIX: For Team B, always kick forward (positive x direction)
+	if not player.is_team_a:
+		forward_distance = abs(forward_distance)  # Ensure positive direction
+	
 	var punt_direction: Vector3 = Vector3(forward_distance, 10.0, randf_range(-10.0, 10.0))
 	
-	print("   Force: 26.0 (MEDIUM PUNT - HIGH ARC)")
+	print("   Direction x=", forward_distance, ", Force: 26.0 (MEDIUM PUNT - HIGH ARC)")
 	return {"action": "kick", "force": 26.0, "direction": punt_direction}
 
 # Helper: Pass to safe teammate - MODIFIED to use lofted passes
