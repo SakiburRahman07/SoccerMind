@@ -58,7 +58,7 @@ func decide() -> Dictionary:
 	var distance_to_target: float = gk_pos.distance_to(target_pos)
 	
 	# If close to ball (within D-box), kick it toward midfield
-	if distance_to_ball < 3.0:
+	if distance_to_ball < 2.0:
 		var kick_direction: Vector3 = Vector3(0.0, 8.0, 0.0)  # Kick toward midfield (x=0) with high arc
 		return {"action": "kick", "force": 25.0, "direction": kick_direction}
 	

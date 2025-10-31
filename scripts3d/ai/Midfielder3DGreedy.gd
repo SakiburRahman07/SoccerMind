@@ -19,7 +19,7 @@ func decide() -> Dictionary:
 	var dir: Vector3 = (desire + keep_shape).normalized()
 	
 	# BALANCED action range for midfielders
-	if to_ball.length() < 4.0:  # REDUCED to balanced range
+	if to_ball.length() < 2.5:  # REDUCED to balanced range
 		# Check for shooting opportunity first
 		var opponent_goal_x: float = -58.0 if player.is_team_a else 58.0
 		var distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)

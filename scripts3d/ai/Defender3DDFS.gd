@@ -34,7 +34,7 @@ func decide() -> Dictionary:
 			break
 	var to_target: Vector3 = (best_target - player.global_transform.origin)
 	var dir: Vector3 = to_target.normalized()
-	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.5:
+	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 1.8:
 		# Prefer a short pass if safe, otherwise clear; use fuzzy force
 		var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 		var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")

@@ -129,10 +129,10 @@ func _physics_process(_delta: float) -> void:
 	# Force emergency action if idle too long
 	if idle_time > max_idle_time and ball:
 		print("Emergency recovery for player - forcing ball pursuit")
-		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-		to_ball.y = 0.0
-		if to_ball.length() > 0.01:
-			velocity = to_ball.normalized() * speed
+		var to_ball_emergency: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_emergency.y = 0.0
+		if to_ball_emergency.length() > 0.01:
+			velocity = to_ball_emergency.normalized() * speed
 			move_and_slide()
 		idle_time = 0.0
 		return
@@ -145,21 +145,21 @@ func _physics_process(_delta: float) -> void:
 			pass
 		if d.get("action", "") == "idle" and ball:
 			# Robust ball pursuit: actively chase the ball when idle
-			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-			to_ball.y = 0.0
-			if to_ball.length() > 0.01:
+			var to_ball_idle: Vector3 = ball.global_transform.origin - global_transform.origin
+			to_ball_idle.y = 0.0
+			if to_ball_idle.length() > 0.01:
 				# Use full speed for ball pursuit instead of reduced speed
-				velocity = to_ball.normalized() * speed
+				velocity = to_ball_idle.normalized() * speed
 				move_and_slide()
 		elif d.get("action", "") == "move" or d.get("action", "") == "kick":
 			_apply_decision(d)
 		else:
 			# Fallback: if no valid action, pursue the ball
 			if ball:
-				var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-				to_ball.y = 0.0
-				if to_ball.length() > 0.01:
-					velocity = to_ball.normalized() * speed * 0.8
+				var to_ball_fallback: Vector3 = ball.global_transform.origin - global_transform.origin
+				to_ball_fallback.y = 0.0
+				if to_ball_fallback.length() > 0.01:
+					velocity = to_ball_fallback.normalized() * speed * 0.8
 					move_and_slide()
 	# Update animations based on player state
 	update_animation()
@@ -358,7 +358,7 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
 		# INCREASED shooting range for grid tactics
-		if dist_to_ball < 4.0:  # INCREASED from 1.6
+		if dist_to_ball < 2.5:  # INCREASED from 1.6
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
 			# Aim away from goalkeeper within grid tactic too
 			var keeper_z: float = 0.0

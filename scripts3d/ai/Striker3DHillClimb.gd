@@ -14,7 +14,7 @@ func decide() -> Dictionary:
 	if not player or not ball:
 		return {"action": "idle"}
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
-	if to_ball.length() < 2.5:
+	if to_ball.length() < 2.0:
 		return _pick_shot()
 	# Move toward a lane that leads to better shot angle
 	var team_dir := 1.0 if player.is_team_a else -1.0

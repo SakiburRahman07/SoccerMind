@@ -19,7 +19,7 @@ func decide() -> Dictionary:
 	var dir: Vector3 = (desire + keep_shape).normalized()
 	
 	# Increased action range for better attacking opportunities
-	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 4.0:
+	if player.global_transform.origin.distance_to(ball.global_transform.origin) < 2.5:
 		# Check for shooting opportunity first
 		var opponent_goal_x: float = -58.0 if player.is_team_a else 58.0
 		var distance_to_goal: float = abs(ball.global_transform.origin.x - opponent_goal_x)
