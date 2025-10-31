@@ -72,14 +72,18 @@ func _process(delta: float) -> void:
 		if _check_for_goal(pos):
 			return  # Goal scored, don't check out of bounds
 	
-	# Then check out-of-bounds for throw-in / corner / goal kick
-	# INCREASED touchline to 65 to give more space for goals
-	if abs(pos.x) > 65.0 and not _restart_in_progress:
-		_handle_throw_in(pos)
-	elif abs(pos.z) > goalline_z and not _restart_in_progress:
-		_handle_corner_or_goal_kick(pos)
+	# Then check out-of-bounds: if ball leaves field area, restart from center
+	# Use touchline_x for X bounds and goalline_z for Z bounds
+	if not _restart_in_progress:
+		if abs(pos.x) > touchline_x or abs(pos.z) > goalline_z:
+			_restart_from_out_of_bounds()
 	_detect_and_recover_from_stall(delta)
 	_perform_health_check(delta)
+
+func _restart_from_out_of_bounds() -> void:
+	# Whistle and immediate center restart; keep score as-is
+	play_whistle_sfx()
+	_reset_kickoff()
 
 # ===================== AUDIO SYSTEM =====================
 
