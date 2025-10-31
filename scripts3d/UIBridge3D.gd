@@ -89,6 +89,17 @@ func _check_game_phase_updates() -> void:
 		ui_controller.update_game_phase(new_phase)
 
 func _update_ui_state() -> void:
-	# This method can be extended to update other UI elements
-	# based on game state without modifying the game logic
-	pass
+	# Update match stats (shots, passes) from game manager
+	if game_manager and ui_controller:
+		var sa := 0
+		var sb := 0
+		var pa := 0
+		var pb := 0
+		if "shots_a" in game_manager and "shots_b" in game_manager:
+			sa = game_manager.shots_a
+			sb = game_manager.shots_b
+		if "passes_a" in game_manager and "passes_b" in game_manager:
+			pa = game_manager.passes_a
+			pb = game_manager.passes_b
+		if ui_controller.has_method("update_stats_display"):
+			ui_controller.update_stats_display(sa, sb, pa, pb)

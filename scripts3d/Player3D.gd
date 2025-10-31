@@ -318,6 +318,10 @@ func _apply_decision(decision: Dictionary) -> void:
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
+		# Notify game manager to track kick for stats
+		var gm = get_tree().current_scene
+		if gm and gm.has_method("register_kick"):
+			gm.register_kick(is_team_a, get_instance_id(), resolved_dir, resolved_force)
 		# Trigger kick animation
 		play_kick_animation()
 		velocity = Vector3.ZERO

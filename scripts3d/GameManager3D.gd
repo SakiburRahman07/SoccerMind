@@ -14,6 +14,20 @@ var score_b: int = 0
 var last_scorer_team_a: bool = false
 var touchline_x: float = 60.0
 var goalline_z: float = 35.0
+var ball_radius: float = 0.5  # Approx ball radius for precise goal-line decisions
+
+# Match statistics
+var shots_a: int = 0
+var shots_b: int = 0
+var passes_a: int = 0
+var passes_b: int = 0
+
+# Transient tracking for pass/shot detection
+var _last_kick_time: float = -9999.0
+var _last_kick_team_a: bool = true
+var _last_kick_kicker_id: int = -1
+var _last_kick_pass_logged: bool = false
+var _last_kick_shot_logged: bool = false
 
 # Restart management
 var _restart_in_progress: bool = false
@@ -79,6 +93,62 @@ func _process(delta: float) -> void:
 			_restart_from_out_of_bounds()
 	_detect_and_recover_from_stall(delta)
 	_perform_health_check(delta)
+	_update_stats_detection(delta)
+
+func register_kick(by_team_a: bool, kicker_id: int, direction: Vector3, force: float) -> void:
+	# Called by players when they kick the ball
+	_last_kick_time = Time.get_unix_time_from_system()
+	_last_kick_team_a = by_team_a
+	_last_kick_kicker_id = kicker_id
+	_last_kick_pass_logged = false
+	_last_kick_shot_logged = false
+
+func _update_stats_detection(_delta: float) -> void:
+	if ball == null:
+		return
+	if _last_kick_time < 0.0:
+		return
+	var now: float = Time.get_unix_time_from_system()
+	var since: float = now - _last_kick_time
+	# Detect completed pass within 2.5s: ball received by same team player (not kicker)
+	if not _last_kick_pass_logged and since <= 2.5:
+		var receiver := _nearest_player(_last_kick_team_a, ball.global_transform.origin)
+		if receiver and receiver is Player3D:
+			var pid: int = receiver.get_instance_id()
+			var dist: float = receiver.global_transform.origin.distance_to(ball.global_transform.origin)
+			if pid != _last_kick_kicker_id and dist < 1.5:
+				if _last_kick_team_a:
+					passes_a += 1
+				else:
+					passes_b += 1
+				_last_kick_pass_logged = true
+	# Detect shot attempt within 3.0s near goal mouth
+	if not _last_kick_shot_logged and since <= 3.0:
+		if _is_in_shot_region(ball.global_transform.origin, _last_kick_team_a):
+			if _last_kick_team_a:
+				shots_a += 1
+			else:
+				shots_b += 1
+			_last_kick_shot_logged = true
+	# Expire tracking after 4s
+	if since > 4.0:
+		_last_kick_time = -9999.0
+
+func _is_in_shot_region(pos: Vector3, team_a: bool) -> bool:
+	# Use same post/crossbar constraints, but within 6 units of the goal plane on attacking side
+	var goal_width: float = 12.0
+	var goal_height: float = 7.0
+	var max_goal_y: float = goal_height / 2.0
+	var under_crossbar: bool = (pos.y + ball_radius) <= max_goal_y
+	var between_posts: bool = abs(pos.z) <= (goal_width * 0.5)
+	if not (under_crossbar and between_posts):
+		return false
+	var plane_x: float = 58.0 if team_a else -58.0
+	# If attacking right (+58): be within [52, 58]; else [-58, -52]
+	if team_a:
+		return pos.x >= 52.0 and pos.x <= 58.0
+	else:
+		return pos.x <= -52.0 and pos.x >= -58.0
 
 func _restart_from_out_of_bounds() -> void:
 	# Whistle and immediate center restart; keep score as-is
@@ -138,14 +208,16 @@ func _check_for_goal(pos: Vector3) -> bool:
 	var goal_height: float = 7.0  # Goal is 7 units tall (from Goal3D.tscn)
 	var max_goal_y: float = goal_height / 2.0  # 3.5 units from ground (center is at y=0, so top is at 3.5)
 	
-	# CRITICAL: Ball must be below crossbar to count as goal
-	# Ball position Y must be less than max_goal_y (3.5) to be valid
-	if pos.y > max_goal_y:
-		print("🚫 Ball over crossbar! Y=", pos.y, " (max: ", max_goal_y, ") - No goal")
+	# Precise rectangle check using ball radius: fully under crossbar and between posts
+	var under_crossbar: bool = (pos.y + ball_radius) <= max_goal_y
+	var above_ground: bool = (pos.y - ball_radius) >= 0.0
+	var between_posts: bool = abs(pos.z) <= (goal_width * 0.5 - ball_radius)
+	if not (under_crossbar and above_ground and between_posts):
 		return false
 	
 	# Left goal (X < -58)
-	if pos.x < -58.0 and abs(pos.z) < goal_width / 2.0:
+	# Require the whole ball to cross the line: center + radius beyond plane
+	if (pos.x + ball_radius) < -58.0:
 		print("⚽ GOAL! Ball entered left goal at position: ", pos)
 		print("⚽ Team B scores! (attacking left goal)")
 		# Team B scores (attacking left goal)
@@ -159,7 +231,8 @@ func _check_for_goal(pos: Vector3) -> bool:
 		return true
 	
 	# Right goal (X > 58)
-	if pos.x > 58.0 and abs(pos.z) < goal_width / 2.0:
+	# Require the whole ball to cross the line: center - radius beyond plane
+	if (pos.x - ball_radius) > 58.0:
 		print("⚽ GOAL! Ball entered right goal at position: ", pos)
 		print("⚽ Team A scores! (attacking right goal)")
 		# Team A scores (attacking right goal)
@@ -353,28 +426,9 @@ func _on_goal_entered(body: Node) -> void:
 	print("Goal area entered by: ", body.name if body else "unknown")
 	if body != ball:
 		return
-	
-	# Determine which goal was entered and award point to attacking team
-	if goal_left and goal_left.get_overlapping_bodies().has(body):
-		print("GOAL! Ball entered left goal via Area3D detection")
-		# Team A scores (attacking left goal)
-		score_a += 1
-		last_scorer_team_a = true
-		_trigger_team_celebration(true)  # Team A celebrates
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
-		_update_score_ui()
-		return
-	
-	if goal_right and goal_right.get_overlapping_bodies().has(body):
-		print("GOAL! Ball entered right goal via Area3D detection")
-		# Team B scores (attacking right goal)
-		score_b += 1
-		last_scorer_team_a = false
-		_trigger_team_celebration(false)  # Team B celebrates
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
-		_update_score_ui()
+	# Delegate scoring decision to precise check
+	var pos := ball.global_transform.origin
+	if _check_for_goal(pos):
 		return
 
 func _update_score_ui() -> void:
