@@ -39,6 +39,11 @@ func _ready() -> void:
 	goal_left = field.get_node_or_null("GoalLeft") as Area3D
 	goal_right = field.get_node_or_null("GoalRight") as Area3D
 	score_label = get_node_or_null("CanvasLayer/Score") as Label
+	# Make discoverable to other nodes (e.g., Ball) for audio callbacks
+	if not is_in_group("game_manager"):
+		add_to_group("game_manager")
+	# Initialize audio players
+	_setup_audio()
 	_setup_goals()
 	_spawn_teams()
 	_reset_kickoff()
@@ -76,6 +81,52 @@ func _process(delta: float) -> void:
 	_detect_and_recover_from_stall(delta)
 	_perform_health_check(delta)
 
+# ===================== AUDIO SYSTEM =====================
+
+func _setup_audio() -> void:
+	# Create AudioStreamPlayers for SFX and ambience. Non-fatal if files missing.
+	var configs := {
+		"sfx_goal": {"path": "res://assets/audio/goal.ogg", "volume_db": -2.0, "loop": false},
+		"sfx_kick": {"path": "res://assets/audio/kick.ogg", "volume_db": -6.0, "loop": false},
+		"sfx_whistle": {"path": "res://assets/audio/whistle.ogg", "volume_db": -4.0, "loop": false},
+		"ambience_crowd": {"path": "res://assets/audio/crowd_ambience.ogg", "volume_db": -10.0, "loop": true}
+	}
+	for name in configs.keys():
+		if get_node_or_null(name) != null:
+			continue
+		var p := AudioStreamPlayer.new()
+		p.name = name
+		var cfg = configs[name]
+		var stream: AudioStream = null
+		if ResourceLoader.exists(cfg.path):
+			stream = load(cfg.path)
+		else:
+			print("[Audio] Missing sound ", cfg.path, " for ", name)
+		p.stream = stream
+		p.volume_db = cfg.volume_db
+		p.autoplay = false
+		add_child(p)
+		if name == "ambience_crowd" and p.stream:
+			# Loop ambience if supported
+			if p.stream is AudioStreamOggVorbis:
+				p.stream.loop = true
+			p.play()
+
+func _play_sfx(node_name: String) -> void:
+	var p := get_node_or_null(node_name)
+	if p and p is AudioStreamPlayer and p.stream:
+		p.stop()
+		p.play()
+
+func play_goal_sfx() -> void:
+	_play_sfx("sfx_goal")
+
+func play_kick_sfx() -> void:
+	_play_sfx("sfx_kick")
+
+func play_whistle_sfx() -> void:
+	_play_sfx("sfx_whistle")
+
 # NEW: Manual goal checking function
 func _check_for_goal(pos: Vector3) -> bool:
 	# Check if ball is in goal area (X beyond ±58 and Z within goal width)
@@ -97,6 +148,7 @@ func _check_for_goal(pos: Vector3) -> bool:
 		score_b += 1
 		last_scorer_team_a = false
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		play_goal_sfx()
 		_trigger_team_celebration(false)  # Team B celebrates
 		_update_score_ui()
 		_reset_kickoff()
@@ -110,6 +162,7 @@ func _check_for_goal(pos: Vector3) -> bool:
 		score_a += 1
 		last_scorer_team_a = true
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		play_goal_sfx()
 		_trigger_team_celebration(true)  # Team A celebrates
 		_update_score_ui()
 		_reset_kickoff()
@@ -139,6 +192,7 @@ func _handle_throw_in(pos: Vector3) -> void:
 		_begin_restart(taker)
 		var inward_x := -2.0 if ball.global_transform.origin.x > 0.0 else 2.0
 		var throw_dir := Vector3(inward_x, 6.0, 0.0)
+		play_whistle_sfx()
 		_schedule_restart_kick(throw_dir, 10.0)
 		# Record restart touch
 		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
@@ -167,6 +221,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			# Drive upfield
 			var up_dir_x := -8.0 if taker_is_team_a else 8.0
 			var drive := Vector3(up_dir_x, 3.0, ( -5.0 if is_left_side else 5.0 ))
+			play_whistle_sfx()
 			_schedule_restart_kick(drive, 14.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a)
@@ -184,6 +239,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_begin_restart(taker_c)
 			# Corner: lob toward box
 			var lob_dir := Vector3((-1.0 if is_left_side else 1.0) * 12.0, 8.0, (-1.0 if pos.z < 0.0 else 1.0) * 8.0)
+			play_whistle_sfx()
 			_schedule_restart_kick(lob_dir, 16.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a_c)
@@ -217,6 +273,7 @@ func _schedule_restart_kick(direction: Vector3, force: float) -> void:
 func _execute_restart_kick(direction: Vector3, force: float) -> void:
 	if ball and _restart_taker:
 		ball.kick(direction, force)
+		play_kick_sfx()
 	_unfreeze_all()
 	_restart_in_progress = false
 	_restart_taker = null
@@ -284,6 +341,7 @@ func _reset_kickoff() -> void:
 		# Two-touch kickoff: small ground pass between two central midfielders
 		var team_dir := 1.0 if kickoff_team == team_a else -1.0
 		var kickoff_target := Vector3(team_dir * 2.0, 0.0, 0.0)
+		play_whistle_sfx()
 		ball.kick(kickoff_target, 6.0)
 
 # Enhanced goal detection with backup method
