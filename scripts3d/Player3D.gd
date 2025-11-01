@@ -12,7 +12,7 @@ var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
 # Animation system variables
-@onready var animation_player: AnimationPlayer = $AnimationPlayer
+var animation_player: AnimationPlayer = null
 var current_animation: String = "idle"
 var animation_blend_time: float = 0.15
 var kick_animation_playing: bool = false
@@ -63,6 +63,8 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	ai.set("player", self)
 	ai.set("ball", ball)
 	add_child(ai)
+	# Initialize animation player
+	animation_player = get_node_or_null("AnimationPlayer")
 	# Initialize grid at current position
 	current_grid = _world_to_grid(global_transform.origin)
 	target_grid = current_grid
@@ -202,35 +204,39 @@ func _physics_process(_delta: float) -> void:
 
 func _apply_decision(decision: Dictionary) -> void:
 	var action: String = decision.get("action", "move")
-	var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-	to_ball.y = 0.0
 	# Boundary pursuit override: if ball near boundary, chase directly (ignore grid)
 	if _is_ball_near_boundary(1.5):
-		if to_ball.length() > 0.01:
-			velocity = to_ball.normalized() * speed
+		var to_ball_boundary: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_boundary.y = 0.0
+		if to_ball_boundary.length() > 0.01:
+			velocity = to_ball_boundary.normalized() * speed
 			# Wall-hug nudge when extremely close and slow
-			if to_ball.length() < 1.0 and velocity.length() < 0.2:
+			if to_ball_boundary.length() < 1.0 and velocity.length() < 0.2:
 				velocity += _wall_hug_tangent() * 0.6
 			move_and_slide()
 			return
+	
+	# Handle move action
 	if action == "move":
+		var to_ball_move: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_move.y = 0.0
 		var dir: Vector3 = decision.get("direction", Vector3.ZERO)
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
 		var my_group_name := "team_a" if is_team_a else "team_b"
 		var my_team_rank: int = _team_rank_to_ball(my_group_name)
-		var direct_chase: bool = (to_ball.length() < 8.0) or (to_ball.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
+		var direct_chase: bool = (to_ball_move.length() < 8.0) or (to_ball_move.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
 		if direct_chase:
-			var move_vec: Vector3 = to_ball
+			var move_vec: Vector3 = to_ball_move
 			move_vec.y = 0.0
 			var mult: float = 1.0
-			if to_ball.length() < 12.0:  # INCREASED from 8.0
+			if to_ball_move.length() < 12.0:  # INCREASED from 8.0
 				mult = 1.25  # INCREASED speed multiplier
 			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
 			# Grid-constrained movement toward desired direction
 			if dir == Vector3.ZERO:
-				dir = to_ball
+				dir = to_ball_move
 			var step: Vector2i = _dir_to_grid_step(dir)
 			var target_center: Vector3 = _grid_to_world(target_grid)
 			var to_target: Vector3 = target_center - global_transform.origin
@@ -350,9 +356,9 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	var my_team_in_possession: bool = (last_touch_a == is_team_a)
 	var my_rank_among_closest: int = _rank_among_closest(my_teammates)
 	var opp_rank_among_closest: int = _rank_among_closest(opp_players)
-	var to_ball: Vector3 = (bpos - global_transform.origin)
-	to_ball.y = 0.0
-	var dist_to_ball: float = to_ball.length()
+	var to_ball_grid: Vector3 = (bpos - global_transform.origin)
+	to_ball_grid.y = 0.0
+	var dist_to_ball: float = to_ball_grid.length()
 
 	# If in possession: let the two closest teammates in this grid chase/act
 	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
@@ -383,14 +389,14 @@ func _apply_grid_tactics_if_applicable() -> bool:
 			velocity = Vector3.ZERO
 			move_and_slide()
 		else:
-			velocity = to_ball.normalized() * speed
+			velocity = to_ball_grid.normalized() * speed
 			move_and_slide()
 		return true
 
 	# Defending behaviors when my team is not in possession: allow two closest opponents to press
 	if (not my_team_in_possession) and opp_rank_among_closest > 0 and opp_rank_among_closest <= 2:
 		# Pressing defender: intercept path by moving directly to ball
-		velocity = to_ball.normalized() * speed
+		velocity = to_ball_grid.normalized() * speed
 		move_and_slide()
 		return true
 	else:
