@@ -1,5 +1,6 @@
 extends CharacterBody3D
 
+# ball kivabe kaj kore 
 var max_speed: float = 30.0
 var friction: float = 0.98
 var gravity: float = 24.0
