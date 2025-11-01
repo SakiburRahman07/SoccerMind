@@ -22,7 +22,7 @@ func decide() -> Dictionary:
 	var dist: float = to_ball.length()
 	
 	# BALANCED shooting range for competitive gameplay
-	if dist < 6.0:  # REDUCED to balanced range
+	if dist < 4.0:  # REDUCED to balanced range
 		# Check if we're in a good shooting position
 		var distance_to_goal: float = abs(ball.global_transform.origin.x - target_x)
 		

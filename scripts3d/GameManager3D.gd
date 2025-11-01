@@ -14,6 +14,20 @@ var score_b: int = 0
 var last_scorer_team_a: bool = false
 var touchline_x: float = 60.0
 var goalline_z: float = 35.0
+var ball_radius: float = 0.5  # Approx ball radius for precise goal-line decisions
+
+# Match statistics
+var shots_a: int = 0
+var shots_b: int = 0
+var passes_a: int = 0
+var passes_b: int = 0
+
+# Transient tracking for pass/shot detection
+var _last_kick_time: float = -9999.0
+var _last_kick_team_a: bool = true
+var _last_kick_kicker_id: int = -1
+var _last_kick_pass_logged: bool = false
+var _last_kick_shot_logged: bool = false
 
 # Restart management
 var _restart_in_progress: bool = false
@@ -39,6 +53,11 @@ func _ready() -> void:
 	goal_left = field.get_node_or_null("GoalLeft") as Area3D
 	goal_right = field.get_node_or_null("GoalRight") as Area3D
 	score_label = get_node_or_null("CanvasLayer/Score") as Label
+	# Make discoverable to other nodes (e.g., Ball) for audio callbacks
+	if not is_in_group("game_manager"):
+		add_to_group("game_manager")
+	# Initialize audio players
+	_setup_audio()
 	_setup_goals()
 	_spawn_teams()
 	_reset_kickoff()
@@ -67,41 +86,160 @@ func _process(delta: float) -> void:
 		if _check_for_goal(pos):
 			return  # Goal scored, don't check out of bounds
 	
-	# Then check out-of-bounds for throw-in / corner / goal kick
-	# INCREASED touchline to 65 to give more space for goals
-	if abs(pos.x) > 65.0 and not _restart_in_progress:
-		_handle_throw_in(pos)
-	elif abs(pos.z) > goalline_z and not _restart_in_progress:
-		_handle_corner_or_goal_kick(pos)
+	# Then check out-of-bounds: if ball leaves field area, restart from center
+	# Use touchline_x for X bounds and goalline_z for Z bounds
+	if not _restart_in_progress:
+		if abs(pos.x) > touchline_x or abs(pos.z) > goalline_z:
+			_restart_from_out_of_bounds()
 	_detect_and_recover_from_stall(delta)
 	_perform_health_check(delta)
+	_update_stats_detection(delta)
+
+func register_kick(by_team_a: bool, kicker_id: int, direction: Vector3, force: float) -> void:
+	# Called by players when they kick the ball
+	_last_kick_time = Time.get_unix_time_from_system()
+	_last_kick_team_a = by_team_a
+	_last_kick_kicker_id = kicker_id
+	_last_kick_pass_logged = false
+	_last_kick_shot_logged = false
+
+func _update_stats_detection(_delta: float) -> void:
+	if ball == null:
+		return
+	if _last_kick_time < 0.0:
+		return
+	var now: float = Time.get_unix_time_from_system()
+	var since: float = now - _last_kick_time
+	# Detect completed pass within 2.5s: ball received by same team player (not kicker)
+	if not _last_kick_pass_logged and since <= 2.5:
+		var receiver := _nearest_player(_last_kick_team_a, ball.global_transform.origin)
+		if receiver and receiver is Player3D:
+			var pid: int = receiver.get_instance_id()
+			var dist: float = receiver.global_transform.origin.distance_to(ball.global_transform.origin)
+			if pid != _last_kick_kicker_id and dist < 1.5:
+				if _last_kick_team_a:
+					passes_a += 1
+				else:
+					passes_b += 1
+				_last_kick_pass_logged = true
+	# Detect shot attempt within 3.0s near goal mouth
+	if not _last_kick_shot_logged and since <= 3.0:
+		if _is_in_shot_region(ball.global_transform.origin, _last_kick_team_a):
+			if _last_kick_team_a:
+				shots_a += 1
+			else:
+				shots_b += 1
+			_last_kick_shot_logged = true
+	# Expire tracking after 4s
+	if since > 4.0:
+		_last_kick_time = -9999.0
+
+func _is_in_shot_region(pos: Vector3, team_a: bool) -> bool:
+	# Use same post/crossbar constraints, but within 6 units of the goal plane on attacking side
+	var goal_width: float = 12.0
+	var goal_height: float = 7.0
+	var max_goal_y: float = goal_height / 2.0
+	var under_crossbar: bool = (pos.y + ball_radius) <= max_goal_y
+	var between_posts: bool = abs(pos.z) <= (goal_width * 0.5)
+	if not (under_crossbar and between_posts):
+		return false
+	var plane_x: float = 58.0 if team_a else -58.0
+	# If attacking right (+58): be within [52, 58]; else [-58, -52]
+	if team_a:
+		return pos.x >= 52.0 and pos.x <= 58.0
+	else:
+		return pos.x <= -52.0 and pos.x >= -58.0
+
+func _restart_from_out_of_bounds() -> void:
+	# Whistle and immediate center restart; keep score as-is
+	play_whistle_sfx()
+	_reset_kickoff()
+
+# ===================== AUDIO SYSTEM =====================
+
+func _setup_audio() -> void:
+	# Create AudioStreamPlayers for SFX and ambience. Non-fatal if files missing.
+	var configs := {
+		"sfx_goal": {"path": "res://assets/audio/goal.ogg", "volume_db": -2.0, "loop": false},
+		"sfx_kick": {"path": "res://assets/audio/kick.ogg", "volume_db": -6.0, "loop": false},
+		"sfx_whistle": {"path": "res://assets/audio/whistle.ogg", "volume_db": -4.0, "loop": false},
+		"ambience_crowd": {"path": "res://assets/audio/crowd_ambience.ogg", "volume_db": -10.0, "loop": true}
+	}
+	for name in configs.keys():
+		if get_node_or_null(name) != null:
+			continue
+		var p := AudioStreamPlayer.new()
+		p.name = name
+		var cfg = configs[name]
+		var stream: AudioStream = null
+		if ResourceLoader.exists(cfg.path):
+			stream = load(cfg.path)
+		else:
+			print("[Audio] Missing sound ", cfg.path, " for ", name)
+		p.stream = stream
+		p.volume_db = cfg.volume_db
+		p.autoplay = false
+		add_child(p)
+		if name == "ambience_crowd" and p.stream:
+			# Loop ambience if supported
+			if p.stream is AudioStreamOggVorbis:
+				p.stream.loop = true
+			p.play()
+
+func _play_sfx(node_name: String) -> void:
+	var p := get_node_or_null(node_name)
+	if p and p is AudioStreamPlayer and p.stream:
+		p.stop()
+		p.play()
+
+func play_goal_sfx() -> void:
+	_play_sfx("sfx_goal")
+
+func play_kick_sfx() -> void:
+	_play_sfx("sfx_kick")
+
+func play_whistle_sfx() -> void:
+	_play_sfx("sfx_whistle")
 
 # NEW: Manual goal checking function
 func _check_for_goal(pos: Vector3) -> bool:
 	# Check if ball is in goal area (X beyond ±58 and Z within goal width)
 	var goal_width: float = 12.0  # Goal is 12 units wide (from Goal3D.tscn)
+	var goal_height: float = 7.0  # Goal is 7 units tall (from Goal3D.tscn)
+	var max_goal_y: float = goal_height / 2.0  # 3.5 units from ground (center is at y=0, so top is at 3.5)
+	
+	# Precise rectangle check using ball radius: fully under crossbar and between posts
+	var under_crossbar: bool = (pos.y + ball_radius) <= max_goal_y
+	var above_ground: bool = (pos.y - ball_radius) >= 0.0
+	var between_posts: bool = abs(pos.z) <= (goal_width * 0.5 - ball_radius)
+	if not (under_crossbar and above_ground and between_posts):
+		return false
 	
 	# Left goal (X < -58)
-	if pos.x < -58.0 and abs(pos.z) < goal_width / 2.0:
+	# Require the whole ball to cross the line: center + radius beyond plane
+	if (pos.x + ball_radius) < -58.0:
 		print("⚽ GOAL! Ball entered left goal at position: ", pos)
 		print("⚽ Team B scores! (attacking left goal)")
 		# Team B scores (attacking left goal)
 		score_b += 1
 		last_scorer_team_a = false
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		play_goal_sfx()
 		_trigger_team_celebration(false)  # Team B celebrates
 		_update_score_ui()
 		_reset_kickoff()
 		return true
 	
 	# Right goal (X > 58)
-	if pos.x > 58.0 and abs(pos.z) < goal_width / 2.0:
+	# Require the whole ball to cross the line: center - radius beyond plane
+	if (pos.x - ball_radius) > 58.0:
 		print("⚽ GOAL! Ball entered right goal at position: ", pos)
 		print("⚽ Team A scores! (attacking right goal)")
 		# Team A scores (attacking right goal)
 		score_a += 1
 		last_scorer_team_a = true
 		print("⚽ Updated scores - A:", score_a, " B:", score_b)
+		play_goal_sfx()
 		_trigger_team_celebration(true)  # Team A celebrates
 		_update_score_ui()
 		_reset_kickoff()
@@ -131,6 +269,7 @@ func _handle_throw_in(pos: Vector3) -> void:
 		_begin_restart(taker)
 		var inward_x := -2.0 if ball.global_transform.origin.x > 0.0 else 2.0
 		var throw_dir := Vector3(inward_x, 6.0, 0.0)
+		play_whistle_sfx()
 		_schedule_restart_kick(throw_dir, 10.0)
 		# Record restart touch
 		if ball.has_method("set") and taker.has_method("get") and taker.has_method("set"):
@@ -159,6 +298,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			# Drive upfield
 			var up_dir_x := -8.0 if taker_is_team_a else 8.0
 			var drive := Vector3(up_dir_x, 3.0, ( -5.0 if is_left_side else 5.0 ))
+			play_whistle_sfx()
 			_schedule_restart_kick(drive, 14.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a)
@@ -176,6 +316,7 @@ func _handle_corner_or_goal_kick(pos: Vector3) -> void:
 			_begin_restart(taker_c)
 			# Corner: lob toward box
 			var lob_dir := Vector3((-1.0 if is_left_side else 1.0) * 12.0, 8.0, (-1.0 if pos.z < 0.0 else 1.0) * 8.0)
+			play_whistle_sfx()
 			_schedule_restart_kick(lob_dir, 16.0)
 			if ball.has_method("set"):
 				ball.set("last_touch_team_a", taker_is_team_a_c)
@@ -209,6 +350,7 @@ func _schedule_restart_kick(direction: Vector3, force: float) -> void:
 func _execute_restart_kick(direction: Vector3, force: float) -> void:
 	if ball and _restart_taker:
 		ball.kick(direction, force)
+		play_kick_sfx()
 	_unfreeze_all()
 	_restart_in_progress = false
 	_restart_taker = null
@@ -276,6 +418,7 @@ func _reset_kickoff() -> void:
 		# Two-touch kickoff: small ground pass between two central midfielders
 		var team_dir := 1.0 if kickoff_team == team_a else -1.0
 		var kickoff_target := Vector3(team_dir * 2.0, 0.0, 0.0)
+		play_whistle_sfx()
 		ball.kick(kickoff_target, 6.0)
 
 # Enhanced goal detection with backup method
@@ -283,28 +426,9 @@ func _on_goal_entered(body: Node) -> void:
 	print("Goal area entered by: ", body.name if body else "unknown")
 	if body != ball:
 		return
-	
-	# Determine which goal was entered and award point to attacking team
-	if goal_left and goal_left.get_overlapping_bodies().has(body):
-		print("GOAL! Ball entered left goal via Area3D detection")
-		# Team A scores (attacking left goal)
-		score_a += 1
-		last_scorer_team_a = true
-		_trigger_team_celebration(true)  # Team A celebrates
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
-		_update_score_ui()
-		return
-	
-	if goal_right and goal_right.get_overlapping_bodies().has(body):
-		print("GOAL! Ball entered right goal via Area3D detection")
-		# Team B scores (attacking right goal)
-		score_b += 1
-		last_scorer_team_a = false
-		_trigger_team_celebration(false)  # Team B celebrates
-		_reset_kickoff()
-		print("Score A:", score_a, " B:", score_b)
-		_update_score_ui()
+	# Delegate scoring decision to precise check
+	var pos := ball.global_transform.origin
+	if _check_for_goal(pos):
 		return
 
 func _update_score_ui() -> void:

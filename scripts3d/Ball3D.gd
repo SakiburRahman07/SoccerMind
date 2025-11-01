@@ -41,6 +41,12 @@ func _physics_process(delta: float) -> void:
 
 func kick(direction: Vector3, force: float) -> void:
 	velocity += direction.normalized() * clamp(force, 0.0, max_speed)
+	# Notify game manager to play kick SFX if available
+	var managers := get_tree().get_nodes_in_group("game_manager")
+	if managers.size() > 0:
+		var gm = managers[0]
+		if gm and gm.has_method("play_kick_sfx"):
+			gm.play_kick_sfx()
 
 func _nearest_player() -> Node:
 	var a := get_tree().get_nodes_in_group("team_a")

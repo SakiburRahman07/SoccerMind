@@ -17,7 +17,7 @@ func decide() -> Dictionary:
 	var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
 	var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
-	if to_ball.length() < 2.5:
+	if to_ball.length() < 2.0:
 		# Consider pass vs dribble
 		var pass_move := _best_pass(mates, opps)
 		var dribble_move := _dribble_forward()

@@ -136,6 +136,13 @@ func _connect_signals() -> void:
 func _process(delta: float) -> void:
 	if is_paused:
 		return
+
+	# Ensure game references are alive (teams/ball may spawn after UI ready)
+	if (not ball) or (not team_a) or (not team_b):
+		_initialize_game_references()
+		# If we just acquired teams, rebuild player stats once
+		if player_stats.is_empty() and team_a and team_b:
+			_initialize_player_stats()
 		
 	# Update match timer
 	match_time += delta * game_speed
@@ -219,6 +226,8 @@ func _update_performance_metrics() -> void:
 	var perf_label = performance_metrics.get_node_or_null("PerformanceLabel")
 	if perf_label:
 		perf_label.text = "Team A: %.1f%% | Team B: %.1f%%" % [team_a_possession, team_b_possession]
+	# Ensure shots/passes labels exist and are positioned
+	_ensure_stats_labels()
 
 func _update_minimap() -> void:
 	if not minimap_field or not ball:
@@ -336,6 +345,29 @@ func toggle_stats_panel() -> void:
 func toggle_minimap() -> void:
 	if minimap:
 		minimap.visible = !minimap.visible
+
+func _ensure_stats_labels() -> void:
+	if not performance_metrics:
+		return
+	if performance_metrics.get_node_or_null("ShotsLabel") == null:
+		var shots_label := Label.new()
+		shots_label.name = "ShotsLabel"
+		shots_label.text = "Shots A: 0 | B: 0"
+		performance_metrics.add_child(shots_label)
+	if performance_metrics.get_node_or_null("PassesLabel") == null:
+		var passes_label := Label.new()
+		passes_label.name = "PassesLabel"
+		passes_label.text = "Passes A: 0 | B: 0"
+		performance_metrics.add_child(passes_label)
+
+func update_stats_display(shots_a: int, shots_b: int, passes_a: int, passes_b: int) -> void:
+	_ensure_stats_labels()
+	var s = performance_metrics.get_node_or_null("ShotsLabel")
+	var p = performance_metrics.get_node_or_null("PassesLabel")
+	if s:
+		s.text = "Shots A: %d | B: %d" % [shots_a, shots_b]
+	if p:
+		p.text = "Passes A: %d | B: %d" % [passes_a, passes_b]
 
 func _test_score_update() -> void:
 	# Test function to manually update score (press T)

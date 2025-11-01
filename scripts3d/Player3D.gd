@@ -12,7 +12,7 @@ var ai: Node = null
 var home_position: Vector3 = Vector3.ZERO
 
 # Animation system variables
-@onready var animation_player: AnimationPlayer = $AnimationPlayer
+var animation_player: AnimationPlayer = null
 var current_animation: String = "idle"
 var animation_blend_time: float = 0.15
 var kick_animation_playing: bool = false
@@ -63,6 +63,8 @@ func setup(_ball: CharacterBody3D, _ai: Node) -> void:
 	ai.set("player", self)
 	ai.set("ball", ball)
 	add_child(ai)
+	# Initialize animation player
+	animation_player = get_node_or_null("AnimationPlayer")
 	# Initialize grid at current position
 	current_grid = _world_to_grid(global_transform.origin)
 	target_grid = current_grid
@@ -129,10 +131,10 @@ func _physics_process(_delta: float) -> void:
 	# Force emergency action if idle too long
 	if idle_time > max_idle_time and ball:
 		print("Emergency recovery for player - forcing ball pursuit")
-		var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-		to_ball.y = 0.0
-		if to_ball.length() > 0.01:
-			velocity = to_ball.normalized() * speed
+		var to_ball_emergency: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_emergency.y = 0.0
+		if to_ball_emergency.length() > 0.01:
+			velocity = to_ball_emergency.normalized() * speed
 			move_and_slide()
 		idle_time = 0.0
 		return
@@ -145,21 +147,21 @@ func _physics_process(_delta: float) -> void:
 			pass
 		if d.get("action", "") == "idle" and ball:
 			# Robust ball pursuit: actively chase the ball when idle
-			var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-			to_ball.y = 0.0
-			if to_ball.length() > 0.01:
+			var to_ball_idle: Vector3 = ball.global_transform.origin - global_transform.origin
+			to_ball_idle.y = 0.0
+			if to_ball_idle.length() > 0.01:
 				# Use full speed for ball pursuit instead of reduced speed
-				velocity = to_ball.normalized() * speed
+				velocity = to_ball_idle.normalized() * speed
 				move_and_slide()
 		elif d.get("action", "") == "move" or d.get("action", "") == "kick":
 			_apply_decision(d)
 		else:
 			# Fallback: if no valid action, pursue the ball
 			if ball:
-				var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-				to_ball.y = 0.0
-				if to_ball.length() > 0.01:
-					velocity = to_ball.normalized() * speed * 0.8
+				var to_ball_fallback: Vector3 = ball.global_transform.origin - global_transform.origin
+				to_ball_fallback.y = 0.0
+				if to_ball_fallback.length() > 0.01:
+					velocity = to_ball_fallback.normalized() * speed * 0.8
 					move_and_slide()
 	# Update animations based on player state
 	update_animation()
@@ -171,9 +173,28 @@ func _physics_process(_delta: float) -> void:
 	var clamped_x: float = clamp(global_position.x, -field_half_width_x + margin, field_half_width_x - margin)
 	var clamped_z: float = clamp(global_position.z, -field_half_height_z + margin, field_half_height_z - margin)
 	
+	# GOALKEEPER D-BOX ENFORCEMENT: Always keep goalkeeper in penalty area
+	if role == "goalkeeper":
+		var own_goal_x: float = 58.0 if is_team_a else -58.0
+		var penalty_depth: float = 12.0
+		var penalty_width: float = 12.0
+		
+		var gk_min_x: float
+		var gk_max_x: float
+		if is_team_a:
+			gk_min_x = own_goal_x - penalty_depth  # 46
+			gk_max_x = own_goal_x  # 58
+		else:
+			gk_min_x = own_goal_x  # -58
+			gk_max_x = own_goal_x + penalty_depth  # -46
+		
+		# HARD CLAMP to D-box for goalkeepers - overrides all other logic
+		clamped_x = clamp(clamped_x, gk_min_x, gk_max_x)
+		clamped_z = clamp(clamped_z, -penalty_width, penalty_width)
+	
 	# CRITICAL FIX: Much more flexible grid constraints for goal scoring
 	# Allow ALL players to break grid when very close to opponent goal
-	if grid_bounds_enabled and not _should_ignore_grid_for_goal():
+	if grid_bounds_enabled and not _should_ignore_grid_for_goal() and role != "goalkeeper":
 		clamped_x = clamp(clamped_x, grid_min_x, grid_max_x)
 		clamped_z = clamp(clamped_z, grid_min_z, grid_max_z)
 	
@@ -183,35 +204,39 @@ func _physics_process(_delta: float) -> void:
 
 func _apply_decision(decision: Dictionary) -> void:
 	var action: String = decision.get("action", "move")
-	var to_ball: Vector3 = ball.global_transform.origin - global_transform.origin
-	to_ball.y = 0.0
 	# Boundary pursuit override: if ball near boundary, chase directly (ignore grid)
 	if _is_ball_near_boundary(1.5):
-		if to_ball.length() > 0.01:
-			velocity = to_ball.normalized() * speed
+		var to_ball_boundary: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_boundary.y = 0.0
+		if to_ball_boundary.length() > 0.01:
+			velocity = to_ball_boundary.normalized() * speed
 			# Wall-hug nudge when extremely close and slow
-			if to_ball.length() < 1.0 and velocity.length() < 0.2:
+			if to_ball_boundary.length() < 1.0 and velocity.length() < 0.2:
 				velocity += _wall_hug_tangent() * 0.6
 			move_and_slide()
 			return
+	
+	# Handle move action
 	if action == "move":
+		var to_ball_move: Vector3 = ball.global_transform.origin - global_transform.origin
+		to_ball_move.y = 0.0
 		var dir: Vector3 = decision.get("direction", Vector3.ZERO)
 		# If close enough to the ball, move continuously toward it (ignore grid snap)
 		var my_group_name := "team_a" if is_team_a else "team_b"
 		var my_team_rank: int = _team_rank_to_ball(my_group_name)
-		var direct_chase: bool = (to_ball.length() < 8.0) or (to_ball.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
+		var direct_chase: bool = (to_ball_move.length() < 8.0) or (to_ball_move.length() < 25.0 and my_team_rank > 0 and my_team_rank <= 4)  # INCREASED range
 		if direct_chase:
-			var move_vec: Vector3 = to_ball
+			var move_vec: Vector3 = to_ball_move
 			move_vec.y = 0.0
 			var mult: float = 1.0
-			if to_ball.length() < 12.0:  # INCREASED from 8.0
+			if to_ball_move.length() < 12.0:  # INCREASED from 8.0
 				mult = 1.25  # INCREASED speed multiplier
 			velocity = move_vec.normalized() * speed * mult
 			move_and_slide()
 		else:
 			# Grid-constrained movement toward desired direction
 			if dir == Vector3.ZERO:
-				dir = to_ball
+				dir = to_ball_move
 			var step: Vector2i = _dir_to_grid_step(dir)
 			var target_center: Vector3 = _grid_to_world(target_grid)
 			var to_target: Vector3 = target_center - global_transform.origin
@@ -263,11 +288,46 @@ func _apply_decision(decision: Dictionary) -> void:
 						resolved_force = result.get("force", force)
 						conflict_found = true
 						break
+		
+		# GOALKEEPER SAFETY CHECK: Prevent goalkeepers from kicking toward their own goal
+		if role == "goalkeeper":
+			var own_goal_x: float = field_half_width_x if is_team_a else -field_half_width_x
+			var opponent_goal_x: float = -field_half_width_x if is_team_a else field_half_width_x
+			
+			# Calculate where the kick would go
+			var kick_target: Vector3 = ball.global_transform.origin + resolved_dir.normalized() * 10.0
+			var kick_target_x: float = kick_target.x
+			
+			# Check if kick is toward own goal (wrong direction)
+			var distance_to_own_goal: float = abs(kick_target_x - own_goal_x)
+			var distance_to_opponent_goal: float = abs(kick_target_x - opponent_goal_x)
+			
+			# If kicking closer to own goal than opponent goal, redirect!
+			if distance_to_own_goal < distance_to_opponent_goal:
+				print("⚠️ SAFETY REDIRECT: ", name, " correcting own-goal kick direction")
+				# Redirect toward opponent goal with high punt
+				var safe_direction: Vector3 = Vector3(opponent_goal_x, 0.0, ball.global_transform.origin.z) - ball.global_transform.origin
+				safe_direction.y = 12.0  # Very high clearance
+				resolved_dir = safe_direction
+				resolved_force = 32.0  # Strong clearance
+				print("✓ Redirected to x=", opponent_goal_x, " with very high punt")
+			
+			# ADDITIONAL CHECK: Ensure goalkeeper ALWAYS uses high kicks (minimum y=6.0)
+			if resolved_dir.y < 6.0:
+				print("⚠️ SAFETY: ", name, " kick too low (y=", resolved_dir.y, "), increasing to minimum y=8.0")
+				resolved_dir.y = 8.0  # Minimum high kick for goalkeepers
+				if resolved_force < 20.0:
+					resolved_force = 22.0  # Increase force for aerial kick
+		
 		# Execute kick with resolved outcome
 		ball.kick(resolved_dir, resolved_force)
 		# Record last touch team for restarts
 		if ball.has_method("set"):
 			ball.set("last_touch_team_a", is_team_a)
+		# Notify game manager to track kick for stats
+		var gm = get_tree().current_scene
+		if gm and gm.has_method("register_kick"):
+			gm.register_kick(is_team_a, get_instance_id(), resolved_dir, resolved_force)
 		# Trigger kick animation
 		play_kick_animation()
 		velocity = Vector3.ZERO
@@ -296,15 +356,15 @@ func _apply_grid_tactics_if_applicable() -> bool:
 	var my_team_in_possession: bool = (last_touch_a == is_team_a)
 	var my_rank_among_closest: int = _rank_among_closest(my_teammates)
 	var opp_rank_among_closest: int = _rank_among_closest(opp_players)
-	var to_ball: Vector3 = (bpos - global_transform.origin)
-	to_ball.y = 0.0
-	var dist_to_ball: float = to_ball.length()
+	var to_ball_grid: Vector3 = (bpos - global_transform.origin)
+	to_ball_grid.y = 0.0
+	var dist_to_ball: float = to_ball_grid.length()
 
 	# If in possession: let the two closest teammates in this grid chase/act
 	if my_team_in_possession and my_rank_among_closest > 0 and my_rank_among_closest <= 2:
 		# Try to gain control and act: if close enough, kick toward goal; else move to ball
 		# INCREASED shooting range for grid tactics
-		if dist_to_ball < 4.0:  # INCREASED from 1.6
+		if dist_to_ball < 2.5:  # INCREASED from 1.6
 			var target_x: float = -(field_half_width_x - 2.0) if is_team_a else (field_half_width_x - 2.0)
 			# Aim away from goalkeeper within grid tactic too
 			var keeper_z: float = 0.0
@@ -329,14 +389,14 @@ func _apply_grid_tactics_if_applicable() -> bool:
 			velocity = Vector3.ZERO
 			move_and_slide()
 		else:
-			velocity = to_ball.normalized() * speed
+			velocity = to_ball_grid.normalized() * speed
 			move_and_slide()
 		return true
 
 	# Defending behaviors when my team is not in possession: allow two closest opponents to press
 	if (not my_team_in_possession) and opp_rank_among_closest > 0 and opp_rank_among_closest <= 2:
 		# Pressing defender: intercept path by moving directly to ball
-		velocity = to_ball.normalized() * speed
+		velocity = to_ball_grid.normalized() * speed
 		move_and_slide()
 		return true
 	else:
