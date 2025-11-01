@@ -160,7 +160,7 @@ func _make_ai_for_role(role: String, index: int) -> Node:
 				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
 			"striker":
 				# Striker uses classic AI
-				return load("res://scripts3d/ai/Striker3D.gd").new()
+				return load("res://scripts3d/ai/Striker3DAStar.gd").new()
 			_:
 				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
 	else:
