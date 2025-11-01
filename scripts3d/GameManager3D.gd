@@ -403,6 +403,34 @@ func _spawn_teams() -> void:
 	add_child(team_b)
 	team_a.call_deferred("configure_team", true, ball)
 	team_b.call_deferred("configure_team", false, ball)
+	
+	# Print team AI configuration
+	call_deferred("_print_team_ai_comparison")
+
+func _print_team_ai_comparison() -> void:
+	print("\n============================================================")
+	print("         🏆 TEAM AI CONFIGURATION 🏆")
+	print("============================================================")
+	print("")
+	print("🔵 TEAM A (Left Side) - BASELINE TEAM:")
+	print("   ├─ Goalkeeper:     Standard AI")
+	print("   ├─ Defender #1:    Classic Defender")
+	print("   ├─ Defender #2:    Classic Defender")
+	print("   ├─ Midfielder #3:  Alpha-Beta (Baseline)")
+	print("   ├─ Midfielder #4:  Alpha-Beta (Baseline)")
+	print("   └─ Striker #5:     Classic Striker")
+	print("")
+	print("🔴 TEAM B (Right Side) - ADVANCED SEARCH AI:")
+	print("   ├─ Goalkeeper:     Standard AI")
+	print("   ├─ Defender #1:    DFS (Depth-First Search)")
+	print("   ├─ Defender #2:    DFS (Depth-First Search)")
+	print("   ├─ Midfielder #3:  Greedy Algorithm")
+	print("   ├─ Midfielder #4:  BFS (Breadth-First Search)")
+	print("   └─ Striker #5:     Hill Climbing")
+	print("")
+	print("============================================================")
+	print("🎮 Let's see which team's AI performs better!")
+	print("============================================================\n")
 
 func _reset_kickoff() -> void:
 	ball.global_transform.origin = Vector3(0, 1, 0)
@@ -433,7 +461,10 @@ func _on_goal_entered(body: Node) -> void:
 
 func _update_score_ui() -> void:
 	if score_label:
-		score_label.text = "A %d - %d B" % [score_a, score_b]
+		# Enhanced labels showing AI type
+		var team_a_label := "A-Classic"
+		var team_b_label := "B-Advanced"
+		score_label.text = "%s %d - %d %s" % [team_a_label, score_a, score_b, team_b_label]
 	
 	# Trigger goal celebration effects
 	var particle_effects = get_node_or_null("SimpleParticleEffects")
