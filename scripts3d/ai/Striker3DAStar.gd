@@ -268,4 +268,3 @@ func _world_to_grid(pos: Vector3, grid_size: float) -> Vector2i:
 
 func _grid_to_world(grid: Vector2i, grid_size: float) -> Vector3:
 	return Vector3(float(grid.x) * grid_size, 0.0, float(grid.y) * grid_size)
-

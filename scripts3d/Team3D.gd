@@ -160,7 +160,7 @@ func _make_ai_for_role(role: String, index: int) -> Node:
 			return load(pool[index % pool.size()]).new()
 		"striker":
 			# Alternate between baseline and hill-climbing striker
-			return load("res://scripts3d/ai/Striker3DHillClimb.gd" if (index % 2 == 1) else "res://scripts3d/ai/Striker3D.gd").new()
+			return load("res://scripts3d/ai/Striker3DHillClimb.gd" if (index % 2 == 0) else "res://scripts3d/ai/Striker3D.gd").new()
 		_:
 			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
 
