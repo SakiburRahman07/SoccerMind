@@ -17,12 +17,10 @@ func decide() -> Dictionary:
 	var home: Vector3 = player.home_position if player and player.has_method("set_home_position") else player.global_transform.origin
 	var to_ball: Vector3 = ball.global_transform.origin - player.global_transform.origin
 	
-	# If far from ball, move toward it
+	# If far from ball, use greedy pathfinding
 	if to_ball.length() >= 2.5:
-		var desire: Vector3 = to_ball
-		var keep_shape: Vector3 = (home - player.global_transform.origin) * 0.4
-		var dir: Vector3 = (desire + keep_shape).normalized()
-		return {"action": "move", "direction": dir}
+		var move_dir: Vector3 = _greedy_pathfinding()
+		return {"action": "move", "direction": move_dir}
 	
 	# GREEDY: When close to ball, evaluate all options and pick best immediate reward
 	var mates := get_tree().get_nodes_in_group("team_a" if player.is_team_a else "team_b")
@@ -59,6 +57,78 @@ func decide() -> Dictionary:
 			action[key] = best_option[key]
 	
 	return action
+
+# Greedy Pathfinding: Evaluate all immediate directions and pick the one with best score
+func _greedy_pathfinding() -> Vector3:
+	var target_pos: Vector3 = ball.global_transform.origin
+	var player_pos: Vector3 = player.global_transform.origin
+	var home: Vector3 = player.home_position if player and player.has_method("set_home_position") else player_pos
+	
+	# Get opponents for obstacle consideration
+	var opps := get_tree().get_nodes_in_group("team_b" if player.is_team_a else "team_a")
+	
+	# GREEDY: Generate all possible movement directions and evaluate them
+	var all_directions: Array = []
+	
+	# Generate 8 cardinal and diagonal directions
+	var angles: Array = [0.0, PI/4, PI/2, 3*PI/4, PI, 5*PI/4, 3*PI/2, 7*PI/4]
+	
+	for angle in angles:
+		var dir: Vector3 = Vector3(cos(angle), 0.0, sin(angle)).normalized()
+		var score: float = _evaluate_direction(dir, player_pos, target_pos, home, opps)
+		all_directions.append({"direction": dir, "score": score})
+	
+	# GREEDY CHOICE: Pick direction with highest immediate score
+	var best_dir: Vector3 = (target_pos - player_pos).normalized()  # Default to direct path
+	best_dir.y = 0.0
+	var best_score: float = -INF
+	
+	for option in all_directions:
+		if option["score"] > best_score:
+			best_score = option["score"]
+			best_dir = option["direction"]
+	
+	return best_dir
+
+# Evaluate a movement direction (greedy heuristic)
+func _evaluate_direction(direction: Vector3, from_pos: Vector3, target_pos: Vector3, home_pos: Vector3, opps: Array) -> float:
+	var score: float = 0.0
+	
+	# Factor 1: Progress toward ball (GREEDY - immediate gain)
+	var to_target: Vector3 = (target_pos - from_pos).normalized()
+	to_target.y = 0.0
+	var alignment: float = direction.dot(to_target)  # -1 to 1
+	score += alignment * 50.0  # Up to 50 points for moving toward ball
+	
+	# Factor 2: Obstacle avoidance (immediate safety)
+	var next_pos: Vector3 = from_pos + direction * 2.0  # Look ahead 2 units
+	var min_opp_dist: float = 999.0
+	
+	for opp in opps:
+		var opp_pos: Vector3 = opp.global_transform.origin
+		var dist: float = next_pos.distance_to(opp_pos)
+		if dist < min_opp_dist:
+			min_opp_dist = dist
+	
+	# Penalize directions that lead close to opponents
+	if min_opp_dist < 3.0:
+		score -= (3.0 - min_opp_dist) * 20.0  # Heavy penalty for collisions
+	else:
+		score += min(min_opp_dist, 8.0) * 2.0  # Bonus for space (capped at 16 points)
+	
+	# Factor 3: Formation keeping (stay reasonably close to home position)
+	var home_dist: float = next_pos.distance_to(home_pos)
+	if home_dist > 15.0:
+		score -= (home_dist - 15.0) * 1.5  # Penalty for straying too far
+	else:
+		score += 10.0  # Bonus for staying in position
+	
+	# Factor 4: Forward bias (move toward opponent's goal)
+	var team_dir: float = 1.0 if player.is_team_a else -1.0
+	var forward_component: float = direction.x * team_dir
+	score += forward_component * 8.0  # Up to 8 points for moving forward
+	
+	return score
 
 # Evaluate shooting option with immediate score
 func _evaluate_shooting(opps: Array) -> Dictionary:
