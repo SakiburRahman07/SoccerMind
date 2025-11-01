@@ -83,8 +83,8 @@ func decide() -> Dictionary:
 func _astar_pathfinding() -> Vector3:
 	# Get grid cell size from player
 	var grid_size: float = 4.0
-	if player.has("grid_cell_size"):
-		grid_size = player.get("grid_cell_size")
+	if player.grid_cell_size:
+		grid_size = player.grid_cell_size
 	
 	# Determine target: prefer ball, but consider strategic positions
 	var target_world: Vector3
@@ -268,4 +268,3 @@ func _world_to_grid(pos: Vector3, grid_size: float) -> Vector2i:
 
 func _grid_to_world(grid: Vector2i, grid_size: float) -> Vector3:
 	return Vector3(float(grid.x) * grid_size, 0.0, float(grid.y) * grid_size)
-

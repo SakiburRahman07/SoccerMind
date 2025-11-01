@@ -144,25 +144,46 @@ func _formation_positions() -> Array:
 	return positions
 
 func _make_ai_for_role(role: String, index: int) -> Node:
-	match role:
-		"goalkeeper":
-			return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
-		"defender":
-			# Alternate between classic and DFS defenders
-			return load("res://scripts3d/ai/Defender3DDFS.gd" if (index % 2 == 1) else "res://scripts3d/ai/Defender3D.gd").new()
-		"midfielder":
-			# Rotate between Greedy, BFS, and AlphaBeta
-			var pool := [
-				"res://scripts3d/ai/Midfielder3DGreedy.gd",
-				"res://scripts3d/ai/Midfielder3DBFS.gd",
-				"res://scripts3d/ai/Midfielder3DAlphaBeta.gd"
-			]
-			return load(pool[index % pool.size()]).new()
-		"striker":
-			# Alternate between baseline and hill-climbing striker
-			return load("res://scripts3d/ai/Striker3DHillClimb.gd" if (index % 2 == 1) else "res://scripts3d/ai/Striker3D.gd").new()
-		_:
-			return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
+	# TEAM A: Classic/Simple AI (Less Advanced)
+	# TEAM B: Advanced Search Algorithms (More Intelligent)
+	
+	if is_team_a:
+		# ====== TEAM A: CLASSIC AI ======
+		match role:
+			"goalkeeper":
+				return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
+			"defender":
+				# Both defenders use classic fuzzy logic
+				return load("res://scripts3d/ai/Defender3D.gd").new()
+			"midfielder":
+				# Both midfielders use Alpha-Beta (as "classic" baseline)
+				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
+			"striker":
+				# Striker uses classic AI
+				return load("res://scripts3d/ai/Striker3DAStar.gd").new()
+			_:
+				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
+	else:
+		# ====== TEAM B: ADVANCED AI ======
+		match role:
+			"goalkeeper":
+				# Same goalkeeper for both teams
+				return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
+			"defender":
+				# Both defenders use DFS (Depth-First Search)
+				return load("res://scripts3d/ai/Defender3DDFS.gd").new()
+			"midfielder":
+				# Index 3: Greedy Algorithm (quick decisions)
+				# Index 4: BFS (Breadth-First Search)
+				if index == 3:
+					return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
+				else:  # index == 4
+					return load("res://scripts3d/ai/Midfielder3DBFS.gd").new()
+			"striker":
+				# Hill Climbing (optimization-based)
+				return load("res://scripts3d/ai/Striker3DHillClimb.gd").new()
+			_:
+				return load("res://scripts3d/ai/Midfielder3DBFS.gd").new()
 
 func reset_positions(_kickoff_left: bool) -> void:
 	var positions := _formation_positions()
