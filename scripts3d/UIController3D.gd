@@ -65,6 +65,15 @@ var team_b_stats: Dictionary = {
 var player_stats: Dictionary = {}
 
 func _ready() -> void:
+	# Set process mode to always so UI works even when game is paused
+	# This allows the Resume button to work when the game is paused
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	# Also set parent CanvasLayer to always process (if it exists)
+	var canvas_layer = get_parent()
+	if canvas_layer and canvas_layer is CanvasLayer:
+		canvas_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	
 	# Initialize UI components
 	_setup_ui_components()
 	_connect_signals()
@@ -258,10 +267,20 @@ func _get_nearest_player_to_ball() -> Node:
 
 func _on_pause_pressed() -> void:
 	is_paused = !is_paused
+	
+	# Pause the game tree (but UI will still work due to PROCESS_MODE_ALWAYS)
 	get_tree().paused = is_paused
 	
+	# Update button text
 	if pause_button:
 		pause_button.text = "Resume" if is_paused else "Pause"
+	
+	# Visual feedback
+	if is_paused:
+		print("Game Paused")
+		# You could add a pause overlay here if desired
+	else:
+		print("Game Resumed")
 
 func _on_speed_changed(value: float) -> void:
 	game_speed = value
@@ -287,6 +306,7 @@ func _on_help_toggle() -> void:
 		help_panel.visible = !help_panel.visible
 
 func _input(event: InputEvent) -> void:
+	# Handle input even when paused (PROCESS_MODE_ALWAYS allows this)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_H:
