@@ -144,46 +144,64 @@ func _formation_positions() -> Array:
 	return positions
 
 func _make_ai_for_role(role: String, index: int) -> Node:
-	# TEAM A: Classic/Simple AI (Less Advanced)
-	# TEAM B: Advanced Search Algorithms (More Intelligent)
+	# Check if AIConfigManager has custom config
+	var ai_path: String = ""
 	
-	if is_team_a:
-		# ====== TEAM A: CLASSIC AI ======
-		match role:
-			"goalkeeper":
-				return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
-			"defender":
-				# Both defenders use classic fuzzy logic
-				return load("res://scripts3d/ai/Defender3D.gd").new()
-			"midfielder":
-				# Both midfielders use Alpha-Beta (as "classic" baseline)
-				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
-			"striker":
-				# Striker uses classic AI
-				return load("res://scripts3d/ai/Striker3DAStar.gd").new()
-			_:
-				return load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd").new()
-	else:
-		# ====== TEAM B: ADVANCED AI ======
-		match role:
-			"goalkeeper":
-				# Same goalkeeper for both teams
-				return load("res://scripts3d/ai/Goalkeeper3D.gd").new()
-			"defender":
-				# Both defenders use DFS (Depth-First Search)
-				return load("res://scripts3d/ai/Defender3DDFS.gd").new()
-			"midfielder":
-				# Index 3: Greedy Algorithm (quick decisions)
-				# Index 4: BFS (Breadth-First Search)
-				if index == 3:
-					return load("res://scripts3d/ai/Midfielder3DGreedy.gd").new()
-				else:  # index == 4
-					return load("res://scripts3d/ai/Midfielder3DBFS.gd").new()
-			"striker":
-				# Hill Climbing (optimization-based)
-				return load("res://scripts3d/ai/Striker3DHillClimb.gd").new()
-			_:
-				return load("res://scripts3d/ai/Midfielder3DBFS.gd").new()
+	# Get AI path from AIConfigManager
+	if AIConfigManager:
+		ai_path = AIConfigManager.get_ai_path_for_player(is_team_a, index)
+	
+	# Fallback to default hardcoded behavior if config not available
+	if ai_path == "" or not ResourceLoader.exists(ai_path):
+		# TEAM A: Classic/Simple AI (Less Advanced)
+		# TEAM B: Advanced Search Algorithms (More Intelligent)
+		
+		if is_team_a:
+			# ====== TEAM A: CLASSIC AI ======
+			match role:
+				"goalkeeper":
+					ai_path = "res://scripts3d/ai/Goalkeeper3D.gd"
+				"defender":
+					# Both defenders use classic fuzzy logic
+					ai_path = "res://scripts3d/ai/Defender3D.gd"
+				"midfielder":
+					# Both midfielders use Alpha-Beta (as "classic" baseline)
+					ai_path = "res://scripts3d/ai/Midfielder3DAlphaBeta.gd"
+				"striker":
+					# Striker uses classic AI
+					ai_path = "res://scripts3d/ai/Striker3DAStar.gd"
+				_:
+					ai_path = "res://scripts3d/ai/Midfielder3DAlphaBeta.gd"
+		else:
+			# ====== TEAM B: ADVANCED AI ======
+			match role:
+				"goalkeeper":
+					# Same goalkeeper for both teams
+					ai_path = "res://scripts3d/ai/Goalkeeper3D.gd"
+				"defender":
+					# Both defenders use DFS (Depth-First Search)
+					ai_path = "res://scripts3d/ai/Defender3DDFS.gd"
+				"midfielder":
+					# Index 3: Greedy Algorithm (quick decisions)
+					# Index 4: BFS (Breadth-First Search)
+					if index == 3:
+						ai_path = "res://scripts3d/ai/Midfielder3DGreedy.gd"
+					else:  # index == 4
+						ai_path = "res://scripts3d/ai/Midfielder3DBFS.gd"
+				"striker":
+					# Hill Climbing (optimization-based)
+					ai_path = "res://scripts3d/ai/Striker3DHillClimb.gd"
+				_:
+					ai_path = "res://scripts3d/ai/Midfielder3DBFS.gd"
+	
+	# Load and instantiate AI
+	var ai_script = load(ai_path)
+	if ai_script == null:
+		push_error("Failed to load AI script: %s" % ai_path)
+		# Ultimate fallback
+		ai_script = load("res://scripts3d/ai/Midfielder3DAlphaBeta.gd")
+	
+	return ai_script.new()
 
 func reset_positions(_kickoff_left: bool) -> void:
 	var positions := _formation_positions()

@@ -1,0 +1,1156 @@
+\documentclass[a4paper,12pt]{extarticle}
+
+% Fonts & geometry
+\usepackage{mathptmx}
+\usepackage[margin=2cm]{geometry}
+\usepackage{cite}
+\usepackage{ragged2e}
+
+% Core packages (no duplicates)
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage[table]{xcolor}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{setspace}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage[colorlinks=true,allcolors=black]{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+
+% Safer custom column (avoid clobbering primitive 'm')
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% Optional: nicer abstract title size
+\makeatletter
+\renewenvironment{abstract}{%
+    \if@twocolumn
+      \section*{\abstractname}%
+    \else
+      \begin{center}{\bfseries \Large\abstractname\vspace{\z@}}\end{center}%
+      \quotation
+    \fi}{\if@twocolumn\else\endquotation\fi}
+\makeatother
+
+\bibliographystyle{IEEEtran}
+
+\title{\textbf{SoccerMind: Intelligent 3D Football Simulation (GotNet Engine)}}
+\author{} % add your name(s) here if you want to remove the "No \author given" notice
+\date{}   % empty date
+
+\begin{document}
+\pagenumbering{gobble}
+\maketitle
+
+% Logo
+\begin{figure}[H]
+  \centering
+  \includegraphics[height=3.5cm]{logo.png}
+  % \caption{Logo} % uncomment if you want a caption
+  \label{fig:dat}
+\end{figure}
+
+\vspace{1.5cm}
+
+\begin{center}
+\textbf{CSE 4110 : Artificial Intelligence Laboratory}
+\end{center}
+
+\vspace{2cm}
+\bigskip
+\bigskip
+\bigskip
+
+\bigskip
+\bigskip
+
+
+% Two aligned blocks without malformed rows
+\noindent
+\hfill
+\begin{center}
+\begin{tabular}{@{}p{0.40\linewidth} p{0.25\linewidth}@{}}
+    \textbf{Submitted to:} & \textbf{Submitted by:} \\[3pt]
+    Md. Mehrab Hossain Opi & Shoumik Barman Polok \\
+    Lecturer & Roll: 2007004 \\
+    Department of CSE, KUET & Dept. of CSE, KUET \\[6pt]
+    Waliul Islam Sumon & Md. Sakibur Rahman \\
+    Lecturer & Roll: 2007007 \\
+    Department of CSE, KUET & Dept. of CSE, KUET \\[6pt]
+\end{tabular}
+\end{center}
+\newpage
+\tableofcontents  % Automatically generates the table of contents
+
+\newpage
+\pagenumbering{arabic}
+\section{Objective}
+
+\begin{spacing}{1.3}
+
+\begin{enumerate}
+    \item To create a simple and interactive soccer environment where players or AI agents can perform actions such as passing, shooting, dribbling, and defending.
+    \item To implement AI algorithms that allow the agents to make smart and independent decisions during gameplay.
+    \item To build a learning system so that the agents can improve their performance over time based on experience or feedback.
+    \item To develop a clear and easy-to-use graphical interface that helps visualize how the AI and the game logic work together.
+    \item To test and analyze how well the AI performs under different strategies, conditions, or difficulty levels.
+    \item To ensure the project is modular and well-structured so new features or improvements can be added easily.
+    \item To apply programming and design principles to make the game run smoothly and efficiently.
+    \item To demonstrate how artificial intelligence can be applied in real-world game development and simulation projects.
+    \item To encourage learning and exploration of AI, programming, and decision-making through a fun and interactive platform.
+    \item To provide insights into teamwork between software components such as game logic, graphics, and AI modules.
+\end{enumerate}
+
+\end{spacing}
+\section{Introduction}
+\begin{spacing}{1.3}
+The development of intelligent and interactive systems has become an important area of research and learning in computer science. Among these, game-based simulations provide a practical and engaging way to study artificial intelligence (AI), programming logic, and real-time decision-making. The project titled \textbf{SoccerMind} is designed as a soccer simulation game that integrates AI techniques to create autonomous and strategic gameplay.
+
+In this project, AI agents are developed to act as soccer players capable of making autonomous decisions such as passing, shooting, and defending based on their environment and game situation. The main goal is to simulate a realistic soccer experience where the agents demonstrate intelligent, adaptive behavior similar to real players. The project combines multiple areas of computer science, including game development, artificial intelligence algorithms, fuzzy logic systems, and user interface design.
+
+By building this game, developers can better understand how AI algorithms can be applied to dynamic and uncertain environments. The project also provides an opportunity to explore how AI concepts can enhance gameplay and improve the realism of simulations. 
+
+Overall, \textbf{SoccerMind} serves as both an educational and experimental platform that demonstrates how artificial intelligence can be used to model real-world behavior through interactive and enjoyable digital simulations.
+
+\end{spacing}
+
+\section{Motivation}
+\begin{spacing}{1.3}
+The motivation behind the \textbf{SoccerMind} project arises from the growing interest in artificial intelligence and its applications in game development and simulation. Games are not only a form of entertainment but also a powerful medium for testing and visualizing intelligent behavior in controlled environments.
+
+Developing this project provides a valuable opportunity to understand how AI techniques can be applied in practical, interactive systems. Soccer is a sport that naturally involves complex decision-making, teamwork, and strategy — making it an ideal scenario for testing AI algorithms. By modeling this environment, developers can explore how intelligent agents learn, react, and adapt in dynamic conditions.
+
+Another key motivation is to make learning AI concepts more engaging and accessible. Instead of focusing only on theory, this project encourages hands-on experimentation, allowing students and developers to see the direct impact of their algorithms through gameplay. This practical approach helps strengthen programming, problem-solving, and analytical thinking skills.
+
+Ultimately, \textbf{SoccerMind} is inspired by the desire to merge creativity with technology — combining the fun of gaming with the intelligence of modern computational methods to create something both educational and innovative.
+\end{spacing}
+
+\section{Game Overview}
+\begin{spacing}{1.3}
+SoccerMind is a soccer-based simulation game designed to demonstrate the integration of artificial intelligence (AI) and interactive gameplay. The project combines the principles of AI algorithms, game development, and strategic decision-making to create an environment where intelligent agents act and respond like real soccer players.
+
+The game consists of a virtual soccer field where AI agents represent players from two opposing teams. Each agent is programmed with a set of abilities such as passing, shooting, dribbling, and defending. These actions are influenced by predefined algorithms and decision-making models that help the agents determine the best moves based on the current game situation.
+
+The core logic of SoccerMind focuses on how agents interact with one another and the environment. Each player observes its surroundings through real-time state monitoring, processes information using specialized AI algorithms, and performs actions according to game rules and strategic considerations. This decision-making process employs a variety of AI techniques, including pathfinding algorithms (A*, Hill Climbing), search algorithms (BFS, DFS, Minimax with Alpha-Beta Pruning), greedy optimization, and fuzzy logic systems, each selected based on the player's tactical role.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{game3}
+    \caption{SoccerMind’s In-game real-time 3D view.}
+    \label{fig:gameplay}
+\end{figure}
+The project also features a graphical interface that visually represents the field, players, and ball movement, allowing users to observe how AI behaviors influence gameplay in real time. The interface is designed to be user-friendly and educational, helping learners understand the link between algorithmic decisions and visual outcomes.
+
+In addition, SoccerMind allows for experimentation with various AI strategies and difficulty levels. By modifying certain parameters, developers can test how agents adapt to changes, improve their performance, or cooperate as a team. This flexibility makes the project an excellent platform for studying AI-based simulations, game dynamics, and system optimization.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{game2}
+    \caption{SoccerMind’s In-game real-time 3D  alternate view.}
+    \label{fig:gameplay}
+\end{figure}
+Overall, the Game Overview of SoccerMind highlights its role as both an educational and experimental tool — showcasing how artificial intelligence can create engaging, realistic, and autonomous gameplay within a simulated soccer environment.
+\end{spacing}
+
+\section{Game Structure}
+\begin{spacing}{1.3}
+The structure of the \textbf{SoccerMind} project is organized to provide a clear, modular, and scalable design that connects different functional components of the game. Each part plays a crucial role in ensuring smooth gameplay, realistic behavior, and effective AI-based decision-making. The following outlines the core structural details of the project:
+
+\subsection{Technical Overview}
+\begin{itemize}
+    \item Engine: Godot Engine
+    \item Perspective: 3D
+    \item Player Types: Midfielder, Striker, Defender, Goalkeeper
+    \item Core Components: Ball physics, player movement, team coordination, AI decision-making
+\end{itemize}
+
+\subsection{Game Environment}
+The Game Environment serves as the central framework where all gameplay activities take place. It consists of a virtual soccer field, the ball, and all active players. The environment defines spatial boundaries, player positions, and movement constraints, ensuring realistic interaction between all entities based on physical and logical rules.
+
+\subsection{Agent Module}
+The Agent Module manages the behavior and abilities of AI-controlled players. Each agent can perform key actions such as passing, shooting, defending, and dribbling. Agents rely on decision-making algorithms that help them adapt dynamically to in-game conditions. The goal of this module is to simulate autonomous, human-like player behavior.
+
+\subsection{AI Logic and Strategy}
+The AI Logic and Strategy system defines how agents think and act. It integrates:
+\begin{itemize}
+    \item Rule-Based Systems: Players act based on predefined logical conditions.
+    \item Pathfinding Algorithms: Techniques like A* or alpha-beta pruning to find optimal routes on the field.
+\end{itemize}
+This setup ensures realistic and competitive gameplay where strategies evolve naturally during matches.
+
+\subsection{Game Loop and Mechanics}
+The Game Loop controls the continuous flow of the game. It updates the environment, processes agent decisions, and refreshes the display in real-time. The loop maintains synchronization between physics, movement, and rendering by performing:
+\begin{enumerate}
+    \item Reading the current game state.
+    \item Processing agent inputs and decisions.
+    \item Updating positions based on physics calculations.
+    \item Rendering the updated scene.
+\end{enumerate}
+This ensures a smooth, real-time gameplay experience.
+
+\subsection{User Interface (UI) Module}
+The User Interface Module visually represents the soccer field, players, and actions. It provides an interactive 3D perspective, allowing users to monitor and analyze gameplay. The UI is designed to be intuitive, displaying real-time movements, scores, and performance metrics, which helps users understand the underlying AI behavior.
+
+\subsection{Data and Performance Analysis}
+The Data and Performance Analysis component records metrics such as player performance, ball possession, and goal attempts. These insights are used to evaluate the effectiveness of AI strategies and learning models. It supports data visualization and comparative analysis to fine-tune AI behavior.
+
+\subsection{Modularity and Scalability}
+SoccerMind is built with a modular design, ensuring each component operates independently but communicates seamlessly with others. This allows easy upgrades or modifications, such as adding new AI algorithms, improving physics mechanics, or enhancing graphics rendering. The modular nature makes it highly scalable for future research and development.
+\end{spacing}
+
+\newpage
+\section{Methodology}
+
+\begin{spacing}{1.3}
+The development of the \textbf{SoccerMind} project followed a structured methodology that combines principles of artificial intelligence, game development, and software engineering. The aim was to create an intelligent 3D soccer simulation capable of realistic player behavior and autonomous decision-making. The following subsections describe the complete methodology adopted during the project.
+
+\subsection{Requirement Analysis}
+The first step involved identifying both functional and non-functional requirements. Functional requirements focused on implementing soccer-specific actions such as passing, shooting, defending, and team coordination. Non-functional requirements emphasized performance, visual quality, and modularity. This analysis ensured that the project objectives aligned with both technical feasibility and user experience.
+
+\subsection{System Design and Architecture}
+The game’s architecture was designed using a modular approach to ensure scalability and maintainability. The primary modules include the Game Environment Module, which manages the soccer field, ball physics, and object boundaries; the AI Agent Module, which defines the behavior and control logic of each player position; the Game Logic Module, which implements rules such as scoring, possession tracking, and time management; and the User Interface Module, which provides a 3D visualization of gameplay and allows user interaction. This modular design allows independent testing and easy integration of new AI strategies.
+
+\subsection{Game Development and Implementation}
+The implementation was carried out using the \textbf{Godot Engine} due to its flexibility, open-source nature, and support for GDScript. The development steps included designing the 3D soccer field, player models, and camera controls; implementing core gameplay mechanics such as ball movement, collisions, and player locomotion; programming team formations and role-specific behaviors; and integrating AI algorithms to govern player decision-making. The combination of physics simulation and AI scripting created a dynamic and interactive gameplay experience.
+
+
+
+\subsection{ AI Algorithm Integration}
+Artificial Intelligence forms the core of the \textbf{SoccerMind} project. Different AI algorithms were implemented for each player position to reflect their tactical roles and gameplay responsibilities. The following subsections describe the algorithms used.
+
+\subsubsection{ Midfielder AI}
+\textbf{Algorithm 1: Alpha-Beta Pruning (Minimax Variant)}  
+
+The \textbf{Midfielder AI} implements a complete \textbf{Minimax algorithm} enhanced with \textbf{Alpha-Beta Pruning} to make strategic decisions between passing, dribbling, and shooting actions. This implementation represents a true adversarial search algorithm that anticipates opponent responses and selects optimal moves.
+
+\textbf{Algorithm Structure and Search Process:}
+
+The Alpha-Beta algorithm operates on a game tree where:
+\begin{itemize}
+    \item \textbf{Maximizing nodes} represent the midfielder's team attempting to maximize game state value.
+    \item \textbf{Minimizing nodes} represent opponents attempting to minimize the team's advantage.
+    \item \textbf{Search depth} is limited to 3 levels to balance strategic depth with real-time performance.
+\end{itemize}
+
+\textbf{Step-by-Step Execution:}
+
+\textbf{Step 1: Action Generation (Root Level)}
+When the midfielder is within 2.0 units of the ball, the algorithm generates all possible actions:
+\begin{enumerate}
+    \item \textbf{Pass actions:} For each teammate (limited to 3 best options for performance), calculates:
+    \begin{itemize}
+        \item Pass direction: Vector from ball to teammate position
+        \item Opponent pressure: $pressure = clamp(1.0 - min\_opponent\_distance/10.0, 0.0, 1.0)$
+        \item Pass force: Uses fuzzy logic system: $force = fuzzy.decide\_pass\_force(distance, pressure)$
+    \end{itemize}
+    \item \textbf{Dribble actions:} Three directional options with angles $[-0.5, 0.0, 0.5]$ radians relative to forward direction
+    \item \textbf{Shoot action:} Generated if within 30 units of opponent goal, with direction toward goal and $y = 1.2$ for lift
+\end{enumerate}
+
+\textbf{Step 2: Minimax Recursion with Alpha-Beta Pruning}
+For each generated action, the algorithm:
+
+\begin{enumerate}
+    \item \textbf{Creates initial game state:} \texttt{GameState(ball\_pos, player\_pos, action, is\_maximizing=true)}
+    \item \textbf{Calls minimax recursively} with depth $d = 2$ (total depth 3):
+    \begin{itemize}
+        \item Maximizing levels: Explores team's possible follow-up actions
+        \item Minimizing levels: Simulates opponent responses (interception attempts)
+    \end{itemize}
+    \item \textbf{Maintains alpha ($\alpha$) and beta ($\beta$) bounds:}
+    \begin{itemize}
+        \item $\alpha$: Best value found for maximizing player (initialized to $-\infty$)
+        \item $\beta$: Best value found for minimizing player (initialized to $+\infty$)
+    \end{itemize}
+    \item \textbf{Prunes branches} when $\beta \leq \alpha$ (guaranteed worse than current best)
+\end{enumerate}
+
+\textbf{Step 3: State Simulation}
+For each action in the search tree, the algorithm simulates outcomes:
+\begin{itemize}
+    \item \textbf{Kick actions:} $new\_ball\_pos = current\_ball\_pos + direction \times (force \times 0.5)$
+    \item \textbf{Move actions:} $new\_player\_pos = current\_player\_pos + direction \times 2.0$
+    \item \textbf{Opponent actions:} Simulated as movement toward ball (interception attempts)
+\end{itemize}
+
+\textbf{Step 4: Terminal Evaluation}
+At depth 0 (leaf nodes), the heuristic evaluation function \texttt{\_eval\_state\_full()} computes:
+
+\begin{equation}
+score = \sum_{i=1}^{6} factor_i \times weight_i
+\end{equation}
+
+where:
+\begin{align}
+factor_1 &= \frac{|ball\_pos.x - our\_goal\_x|}{116.0} \quad \text{(progress, normalized 0-1), } weight_1 = 30.0 \\
+factor_2 &= -|ball\_pos.x - opponent\_goal\_x| \quad \text{(distance penalty), } weight_2 = 0.3 \\
+factor_3 &= min\_opponent\_distance \quad \text{(space from opponents), } weight_3 = 2.0 \\
+factor_4 &= \frac{1}{n} \sum_{teammates} (30.0 - distance\_to\_teammate) \quad \text{(support), } weight_4 = 0.5 \\
+factor_5 &= \begin{cases} 
+15.0 & \text{if } dist\_to\_goal < 20.0 \\
+0.0 & \text{otherwise}
+\end{cases} \quad \text{(shooting bonus)} \\
+factor_6 &= -max(0.0, |ball\_pos.z| - 15.0) \quad \text{(sideline penalty), } weight_6 = 0.5
+\end{align}
+
+\textbf{Alpha-Beta Pruning Mechanism:}
+
+The pruning occurs at two points:
+\begin{enumerate}
+    \item \textbf{Beta cutoff (maximizing node):} When evaluating team actions, if a child returns value $v \geq \beta$, all remaining siblings are pruned because the opponent (minimizer) will never choose this branch.
+    \item \textbf{Alpha cutoff (minimizing node):} When evaluating opponent responses, if a child returns value $v \leq \alpha$, all remaining siblings are pruned because the team (maximizer) will never choose this branch.
+\end{enumerate}
+
+This reduces the effective branching factor, decreasing complexity from $O(b^d)$ to approximately $O(b^{d/2})$ in optimal cases, where $b$ is the branching factor (typically 6-10 actions) and $d = 3$ is the search depth.
+
+\textbf{Performance Characteristics:}
+
+\begin{itemize}
+    \item \textbf{Time complexity:} $O(b^{d/2})$ with pruning (vs. $O(b^d)$ without pruning)
+    \item \textbf{Space complexity:} $O(bd)$ for recursion stack
+    \item \textbf{Actual performance:} Processes approximately 50-150 game states per decision, completing within 1-3 milliseconds
+    \item \textbf{Branching factor:} Approximately 6-10 actions per level (3 passes + 3 dribbles + 1 shoot)
+\end{itemize}
+
+\textbf{Integration with Fuzzy Logic:}
+
+The Alpha-Beta algorithm integrates fuzzy logic in the action generation phase:
+\begin{itemize}
+    \item Pass force calculation uses \texttt{fuzzy.decide\_pass\_force(distance, pressure)} to determine optimal kick strength
+    \item This ensures realistic pass dynamics even in the simulated game tree exploration
+\end{itemize}
+
+\textbf{Decision Output:}
+
+The algorithm returns the action with the highest minimax value, which represents the best move considering optimal opponent counterplay. If the player is far from the ball ($distance \geq 2.0$), the algorithm uses lane-seeking behavior to position for future opportunities.
+
+\textbf{Algorithm 2: Breadth-First Search (BFS)}  
+
+The \textbf{BFS Midfielder} employs a \textbf{Breadth-First Search} strategy using a queue-based (FIFO) exploration of the action space. The algorithm explores all actions at the current level before moving deeper, ensuring systematic coverage of immediate options. Key features include:
+
+\begin{itemize}
+    \item \textbf{Level-by-level exploration:} Actions are organized into depth levels (MAX\_DEPTH = 2), processed breadth-first to evaluate immediate options comprehensively.
+    \item \textbf{Action generation:} The algorithm generates shooting, passing, and dribbling actions at each level, simulating their outcomes.
+    \item \textbf{Heuristic evaluation:} Each action state is scored based on field advancement (40 points), distance to goal (0.4 penalty per unit), shooting bonuses (25 points), safety from opponents (1.5 points per unit), and teammate proximity (3 points per nearby teammate).
+    \item \textbf{Fuzzy integration:} Pass force calculation uses the fuzzy logic system (\texttt{decide\_pass\_force()}) considering distance and opponent pressure.
+    \item \textbf{Performance optimization:} Limited to 60 iterations and depth 2 to maintain real-time performance.
+\end{itemize}
+
+This approach ensures that no promising immediate action is overlooked before considering multi-step sequences.
+
+\textbf{Algorithm 3: Greedy Algorithm}  
+
+The \textbf{Greedy Midfielder} implements a pure greedy strategy that evaluates all immediate action options and selects the one with the highest immediate reward, without considering future consequences or opponent responses. This approach prioritizes computational efficiency and fast decision-making over strategic depth.
+
+\textbf{Algorithm Structure:}
+
+The greedy algorithm operates in two phases:
+\begin{enumerate}
+    \item \textbf{Pathfinding phase:} When far from ball ($distance \geq 2.5$), uses greedy pathfinding to select movement direction
+    \item \textbf{Action selection phase:} When close to ball ($distance < 2.5$), evaluates all available actions and selects the best immediate option
+\end{enumerate}
+
+\textbf{Phase 1: Greedy Pathfinding}
+
+When the player is far from the ball, the algorithm evaluates 8 cardinal and diagonal directions (angles: $0, \pi/4, \pi/2, 3\pi/4, \pi, 5\pi/4, 3\pi/2, 7\pi/4$) and selects the direction with the highest immediate score.
+
+\textbf{Direction Evaluation Function (\texttt{\_evaluate\_direction()}):}
+
+For each candidate direction $dir$, the algorithm computes:
+
+\begin{equation}
+score(dir) = w_1 \times progress(dir) + w_2 \times avoidance(dir) + w_3 \times formation(dir) + w_4 \times forward(dir)
+\end{equation}
+
+where:
+\begin{align}
+progress(dir) &= alignment(dir, target) \times 50.0 \quad \text{where } alignment = dir \cdot \frac{target - current}{|target - current|} \\
+avoidance(dir) &= \begin{cases}
+-(3.0 - min\_opp\_dist) \times 20.0 & \text{if } min\_opp\_dist < 3.0 \\
+min(min\_opp\_dist, 8.0) \times 2.0 & \text{otherwise}
+\end{cases} \\
+formation(dir) &= \begin{cases}
+10.0 & \text{if } distance\_to\_home \leq 15.0 \\
+10.0 - (distance\_to\_home - 15.0) \times 1.5 & \text{otherwise}
+\end{cases} \\
+forward(dir) &= (dir.x \times team\_direction) \times 8.0
+\end{align}
+
+The direction with maximum score is selected: $best\_dir = \arg\max_{dir \in \{8\_directions\}} score(dir)$
+
+\textbf{Phase 2: Action Selection (When Close to Ball)}
+
+When the player is within 2.5 units of the ball, the algorithm generates and evaluates three action types:
+
+\textbf{1. Shooting Evaluation (\texttt{\_evaluate\_shooting()}):}
+
+Shooting is considered valid only if:
+\begin{itemize}
+    \item Distance to goal $\leq 25.0$ units
+    \item Angle cosine between ball direction and goal direction $\geq 0.4$
+\end{itemize}
+
+If valid, the shooting score is calculated as:
+
+\begin{equation}
+score_{shoot} = (30.0 - distance\_to\_goal) \times 2.0 + angle\_cos \times 30.0 + space\_bonus
+\end{equation}
+
+where:
+\begin{align}
+space\_bonus &= \begin{cases}
++20.0 & \text{if } closest\_opponent > 4.0 \text{ (clear shot)} \\
+-30.0 & \text{if } closest\_opponent < 2.0 \text{ (blocked)}
+\end{cases}
+\end{align}
+
+The shot uses force $17.0$ with direction $Vector3(goal\_direction.x, 1.0, goal\_direction.z)$ for elevation.
+
+\textbf{2. Passing Evaluation (\texttt{\_evaluate\_passing()}):}
+
+The passing evaluation integrates with the fuzzy logic system:
+
+\begin{enumerate}
+    \item \textbf{Teammate selection:} Uses \texttt{fuzzy.pick\_teammate\_and\_style()} to select best teammate, which returns:
+    \begin{itemize}
+        \item Target position: $target = best\_teammate\_position$
+        \item Pass style: $lob = true/false$ (determined probabilistically)
+    \end{itemize}
+    \item \textbf{Pass force calculation:} Uses \texttt{fuzzy.decide\_pass\_force(distance, pressure)} where:
+    \begin{itemize}
+        \item $distance = |target - ball\_position|$
+        \item $pressure = clamp(1.0 - min\_opponent\_distance/10.0, 0.0, 1.0)$
+    \end{itemize}
+    \item \textbf{Scoring function:}
+    \begin{equation}
+    score_{pass} = progress \times 3.0 + (1.0 - pressure) \times 25.0 + distance\_bonus + assist\_bonus
+    \end{equation}
+    where:
+    \begin{align}
+    progress &= ball\_dist\_to\_goal - target\_dist\_to\_goal \quad \text{(forward movement)} \\
+    distance\_bonus &= \begin{cases}
+    15.0 & \text{if } 5.0 < distance < 25.0 \\
+    0.0 & \text{otherwise}
+    \end{cases} \\
+    assist\_bonus &= \begin{cases}
+    30.0 & \text{if } target\_dist\_to\_goal < 20.0 \text{ AND } pressure < 0.4 \\
+    0.0 & \text{otherwise}
+    \end{cases}
+    \end{align}
+\end{enumerate}
+
+If $lob = true$, the pass direction's $y$ component is set to $3.0$ for an aerial pass.
+
+\textbf{3. Dribbling Evaluation (\texttt{\_evaluate\_dribbling()}):}
+
+Dribbling is evaluated for forward movement:
+
+\begin{equation}
+score_{dribble} = forward\_progress \times 8.0 + space\_score
+\end{equation}
+
+where:
+\begin{align}
+forward\_progress &= |current\_x - goal\_x| - |(current\_pos + dribble\_dir \times 2.5).x - goal\_x| \\
+space\_score &= \begin{cases}
+min\_opp\_dist \times 4.0 + 20.0 & \text{if } min\_opp\_dist > 5.0 \text{ (open space)} \\
+min\_opp\_dist \times 4.0 - 50.0 & \text{if } min\_opp\_dist < 2.0 \text{ (collision risk)} \\
+min\_opp\_dist \times 4.0 & \text{otherwise}
+\end{cases}
+\end{align}
+
+The dribble direction is always forward: $Vector3(team\_direction, 0, 0)$ normalized.
+
+\textbf{Greedy Selection Process:}
+
+After evaluating all three action types, the algorithm:
+\begin{enumerate}
+    \item Collects all valid options into array $all\_options = [shoot\_option, pass\_option, dribble\_option]$
+    \item Removes invalid options (empty dictionaries)
+    \item Selects maximum: $best\_action = \arg\max_{action \in all\_options} action["score"]$
+    \item Returns action without the score field
+\end{enumerate}
+
+\textbf{Performance Characteristics:}
+
+\begin{itemize}
+    \item \textbf{Time complexity:} $O(n)$ where $n$ is the number of evaluated options (typically 3-8 options)
+    \item \textbf{Space complexity:} $O(1)$ - only stores current best option
+    \item \textbf{Decision time:} Approximately 0.1-0.5 milliseconds per decision
+    \item \textbf{No lookahead:} Pure immediate reward maximization, may miss optimal multi-step sequences
+\end{itemize}
+
+
+
+
+\subsubsection{Striker AI}
+\textbf{Algorithm 1: Hill Climbing}  
+
+The \textbf{Striker AI} implements the \textbf{Hill Climbing algorithm} in two distinct applications: pathfinding toward the ball and shot direction optimization. Both implementations follow the classic hill climbing paradigm of iterative improvement from an initial solution.
+
+\textbf{Application 1: Pathfinding Hill Climbing}
+
+When the striker is far from the ball ($distance \geq 2.0$), hill climbing is used to find an optimal movement direction that balances progress toward the ball with obstacle avoidance.
+
+\textbf{Initialization:}
+\begin{itemize}
+    \item Initial solution: Direct path direction $dir_0 = \frac{ball\_pos - player\_pos}{|ball\_pos - player\_pos|}$, with $y = 0$ (ground movement)
+    \item Initial score: $score_0 = path\_score(dir_0, player\_pos, ball\_pos, opponents)$
+    \item Step size: $\delta_{initial} = 0.3$ radians (angular step)
+    \item Maximum iterations: $MAX\_ITER = 15$
+\end{itemize}
+
+\textbf{Hill Climbing Loop:}
+
+\begin{enumerate}
+    \item \textbf{Generate neighbors:} Creates 6 neighboring directions by rotating current direction:
+    \begin{align}
+    neighbors &= \{dir \text{ rotated by } \theta\} \text{ where } \theta \in \{-2\delta, -\delta, -0.5\delta, 0.5\delta, \delta, 2\delta\}
+    \end{align}
+    Rotation is performed by converting direction to angle: $\theta_{current} = \atan2(dir.z, dir.x)$, then generating new angles and converting back to direction vectors.
+    
+    \item \textbf{Evaluate neighbors:} For each neighbor $dir_i$, computes:
+    \begin{equation}
+    score_i = path\_score(dir_i, player\_pos, ball\_pos, opponents)
+    \end{equation}
+    
+    \item \textbf{Find best neighbor:} $best\_neighbor = \arg\max_{dir \in neighbors} score(dir)$
+    
+    \item \textbf{Improvement check:} If $score(best\_neighbor) > score(current)$:
+    \begin{itemize}
+        \item Move to better neighbor: $current\_dir = best\_neighbor$
+        \item Update score: $current\_score = score(best\_neighbor)$
+        \item Set $improved = true$
+    \end{itemize}
+    Otherwise, reduce step size: $\delta = \delta \times 0.5$ and continue if $\delta > 0.05$
+    
+    \item \textbf{Termination:} Loop exits when:
+    \begin{itemize}
+        \item No improvement found AND step size $\leq 0.05$ (converged to local optimum)
+        \item OR iterations $\geq MAX\_ITER$ (performance limit)
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Path Scoring Function (\texttt{\_path\_score()}):}
+
+The evaluation function computes a weighted combination of three factors:
+
+\begin{equation}
+path\_score(dir) = 0.6 \times progress\_score + 0.3 \times avoidance\_score + 0.1 \times forward\_score
+\end{equation}
+
+where:
+\begin{align}
+progress\_score &= \frac{alignment(dir, target) + 1.0}{2.0} \quad \text{(normalized to [0, 1])} \\
+alignment(dir, target) &= dir \cdot \frac{target - current}{|target - current|} \quad \text{(dot product, range [-1, 1])} \\
+avoidance\_score &= \begin{cases}
+1.0 - \frac{(5.0 - dist\_to\_opp)}{5.0} \times 0.3 & \text{if } dist\_to\_opp < 5.0 \\
+1.0 & \text{otherwise}
+\end{cases} \\
+forward\_score &= \frac{(forward\_component + 1.0)}{2.0} \quad \text{where } forward\_component = dir.x \times team\_direction
+\end{align}
+
+The avoidance score looks ahead 3 units: $next\_pos = current\_pos + dir \times 3.0$ to evaluate obstacle proximity.
+
+\textbf{Application 2: Shot Optimization Hill Climbing}
+
+When the striker is close to the ball ($distance < 2.0$), hill climbing optimizes the shot direction vector to maximize scoring probability.
+
+\textbf{Initialization:}
+\begin{itemize}
+    \item Initial solution: Straight shot toward goal center
+    \begin{align}
+    dir_0 = Vector3(target\_goal\_x - ball\_x, 1.0, 0.0)
+    \end{align}
+    \item Initial score: $score_0 = shot\_score(dir_0, opponents)$
+    \item Step size: $\delta_{initial} = 3.0$ units
+    \item Maximum iterations: $MAX\_ITER = 20$
+\end{itemize}
+
+\textbf{Hill Climbing Loop:}
+
+\begin{enumerate}
+    \item \textbf{Generate neighbors:} Creates 8 neighbors by varying height (y) and horizontal angle (z):
+    \begin{align}
+    neighbors &= \{Vector3(dir.x, clamp(dir.y + \Delta y, 0, 8), clamp(dir.z + \Delta z, -12, 12))\} \\
+    &\text{where } (\Delta y, \Delta z) \in \{(-3, -3), (-3, 0), (-3, 3), (0, -3), (0, 3), (3, -3), (3, 0), (3, 3)\}
+    \end{align}
+    Note: The x-component (goal direction) remains constant, ensuring shots always aim toward goal.
+    
+    \item \textbf{Evaluate neighbors:} For each neighbor $dir_i$, computes shot score considering:
+    \begin{itemize}
+        \item Shot advancement: $adv = |dir_i.x|$ (horizontal progress)
+        \item Lob potential: $lob\_bonus = max(0, dir_i.y) \times 0.25$
+        \item Opponent pressure: Calculated from all opponents within 12 units
+        \item Goalkeeper positioning: Penalty if shot trajectory passes near goalkeeper's z-position
+    \end{itemize}
+    
+    \item \textbf{Improvement and refinement:} If improvement found, moves to better neighbor. If no improvement:
+    \begin{itemize}
+        \item Reduces step size: $\delta = \delta \times 0.5$
+        \item Continues with smaller steps if $\delta > 0.3$ (fine-tuning phase)
+    \end{itemize}
+    
+    \item \textbf{Termination:} Exits when no improvement AND step size $\leq 0.3$ OR iterations $\geq 20$
+\end{enumerate}
+
+\textbf{Shot Scoring Function (\texttt{\_shot\_score()}):}
+
+\begin{equation}
+shot\_score(dir) = 0.8 \times |dir.x| + 0.25 \times max(0, dir.y) - 0.4 \times pressure - 0.6 \times gk\_penalty
+\end{equation}
+
+where:
+\begin{align}
+pressure &= \frac{1}{n} \sum_{opponents} clamp\left(1.0 - \frac{distance\_to\_opp}{12.0}, 0.0, 1.0\right) \\
+gk\_penalty &= \begin{cases}
+clamp\left(1.0 - \frac{|end\_z - keeper\_z|}{10.0}, 0.0, 1.0\right) \times 0.6 & \text{if goalkeeper detected} \\
+0.0 & \text{otherwise}
+\end{cases} \\
+end\_z &= (ball\_pos + dir.normalized() \times 8.0).z
+\end{align}
+
+The goalkeeper penalty aims shots away from the goalkeeper's position, increasing scoring probability.
+
+\textbf{Shot Force Calculation:}
+
+After optimizing direction, the shot force is calculated adaptively:
+
+\begin{equation}
+force = clamp(22.0 + forwardness \times 4.0 + pressure \times 4.0, 18.0, 30.0)
+\end{equation}
+
+where $forwardness = clamp(|dir.x|/60.0, 0.0, 1.0)$ and $pressure$ is opponent proximity pressure.
+
+\textbf{Performance Characteristics:}
+
+\begin{itemize}
+    \item \textbf{Pathfinding:} Typically converges in 5-10 iterations (0.2-0.5 ms)
+    \item \textbf{Shot optimization:} Typically converges in 8-15 iterations (0.3-0.8 ms)
+    \item \textbf{Space complexity:} $O(1)$ - only stores current best solution
+    \item \textbf{Local optima risk:} May get trapped in local maxima, mitigated by step size reduction
+\end{itemize}
+
+
+\textbf{Algorithm 2: A* Pathfinding}  
+
+The \textbf{A* Striker} implements a complete \textbf{A* pathfinding algorithm} with grid-based navigation, providing guaranteed optimal paths from current position to target while avoiding obstacles. This implementation combines the systematic exploration of Dijkstra's algorithm with the heuristic-guided efficiency of best-first search.
+
+\textbf{Algorithm Structure:}
+
+The A* algorithm operates on a discretized grid representation of the 3D soccer field:
+\begin{itemize}
+    \item \textbf{Grid cell size:} Default 4.0 units (configurable via \texttt{player.grid\_cell\_size})
+    \item \textbf{Coordinate conversion:} 3D world positions $(x, y, z)$ map to 2D grid coordinates $(grid\_x, grid\_z)$
+    \item \textbf{Node structure:} Each grid cell is a node with position, cost scores, and parent reference
+\end{itemize}
+
+\textbf{Data Structure: AStarNode Class}
+
+Each node in the search contains:
+\begin{itemize}
+    \item \texttt{grid\_pos: Vector2i} - Grid cell coordinates
+    \item \texttt{g\_score: float} - Actual cost from start to this node
+    \item \texttt{h\_score: float} - Heuristic estimate of cost to goal
+    \item \texttt{f\_score: float} - Total estimated cost ($f = g + h$)
+    \item \texttt{came\_from: Vector2i} - Parent node for path reconstruction
+\end{itemize}
+
+\textbf{Step-by-Step Execution:}
+
+\textbf{Step 1: Target Determination}
+
+The algorithm first determines the target position based on game situation:
+
+\begin{align}
+target\_world &= \begin{cases}
+Vector3(ball\_x - (5.0 \times team\_sign), 0, optimal\_z) & \text{if } dist\_to\_goal < 20.0 \text{ (strategic position)} \\
+ball\_pos & \text{otherwise (direct ball pursuit)}
+\end{cases}
+\end{align}
+
+For strategic positioning when close to goal:
+\begin{align}
+optimal\_z &= clamp(ball\_z + random(-8.0, 8.0), -30.0, 30.0) \\
+team\_sign &= \begin{cases}
+-1.0 & \text{if Team A} \\
++1.0 & \text{if Team B}
+\end{cases}
+\end{align}
+
+This positions the striker ahead of the ball for optimal shooting angles.
+
+\textbf{Step 2: Coordinate Conversion}
+
+World positions are converted to grid coordinates:
+
+\begin{align}
+world\_to\_grid(pos) &= Vector2i(round(pos.x / grid\_size), round(pos.z / grid\_size)) \\
+grid\_to\_world(grid) &= Vector3(float(grid.x) \times grid\_size, 0.0, float(grid.y) \times grid\_size)
+\end{align}
+
+The y-coordinate (height) is ignored for 2D grid navigation.
+
+\textbf{Step 3: A* Search Initialization}
+
+\begin{itemize}
+    \item \textbf{Open set:} Priority queue (array) of nodes to explore, sorted by f-score
+    \item \textbf{Closed set:} Dictionary of visited nodes ($grid\_pos \rightarrow true$)
+    \item \textbf{Cost dictionaries:} $g\_score[grid\_pos]$ and $f\_score[grid\_pos]$ for each node
+    \item \textbf{Path tracking:} $came\_from[grid\_pos]$ stores parent nodes
+    \item \textbf{Start node:} Initialized with $g\_score[start] = 0.0$ and $f\_score[start] = h(start, goal)$
+\end{itemize}
+
+\textbf{Step 4: A* Main Loop}
+
+\begin{enumerate}
+    \item \textbf{Select node:} Finds node in open set with minimum f-score:
+    \begin{equation}
+    current = \arg\min_{node \in open\_set} node.f\_score
+    \end{equation}
+    
+    \item \textbf{Goal check:} If $current == goal$, reconstructs and returns path
+    
+    \item \textbf{Move to closed:} Removes current from open set, adds to closed set
+    
+    \item \textbf{Explore neighbors:} Generates 4-directional neighbors:
+    \begin{align}
+    neighbors &= \{(x+1, y), (x-1, y), (x, y+1), (x, y-1)\}
+    \end{align}
+    
+    \item \textbf{Evaluate neighbors:} For each neighbor:
+    \begin{itemize}
+        \item Skip if in closed set
+        \item Calculate tentative g-score: $tentative\_g = g\_score[current] + move\_cost(current, neighbor)$
+        \item If $tentative\_g < g\_score[neighbor]$ (better path found):
+        \begin{align}
+        came\_from[neighbor] &= current \\
+        g\_score[neighbor] &= tentative\_g \\
+        h\_score[neighbor] &= heuristic(neighbor, goal) \\
+        f\_score[neighbor] &= tentative\_g + h\_score[neighbor]
+        \end{align}
+        \item Add to open set if not already present (or update if present with worse f-score)
+    \end{itemize}
+    
+    \item \textbf{Termination:} Loop continues until goal reached, open set empty, or maximum iterations (200) exceeded
+\end{enumerate}
+
+\textbf{Step 5: Move Cost Calculation (\texttt{\_get\_move\_cost()})}
+
+The cost to move between adjacent cells includes base cost and penalties:
+
+\begin{equation}
+move\_cost(from, to) = base\_cost + opponent\_penalty + boundary\_penalty
+\end{equation}
+
+where:
+\begin{align}
+base\_cost &= 1.0 \quad \text{(standard cell movement)} \\
+opponent\_penalty &= \begin{cases}
+2.0 \times count(opponents) & \text{if } dist(opponent, to\_world) < grid\_size \times 0.7 \\
+0.0 & \text{otherwise}
+\end{cases} \\
+boundary\_penalty &= \begin{cases}
+5.0 & \text{if } |to\_world.x| > 60.0 \text{ OR } |to\_world.z| > 35.0 \\
+0.0 & \text{otherwise}
+\end{cases}
+\end{align}
+
+This cost function encourages paths that avoid opponents and stay within field boundaries.
+
+\textbf{Step 6: Heuristic Function (\texttt{\_heuristic()})}
+
+The algorithm uses Manhattan distance, which is admissible for 4-directional grid movement:
+
+\begin{equation}
+h(pos, goal) = |pos.x - goal.x| + |pos.y - goal.y|
+\end{equation}
+
+\textbf{Admissibility proof:} Manhattan distance never overestimates actual cost because diagonal movement is not allowed, ensuring the heuristic is admissible and A* guarantees optimal solutions.
+
+\textbf{Step 7: Path Reconstruction (\texttt{\_reconstruct\_path()})}
+
+After reaching the goal, the path is reconstructed by backtracking:
+
+\begin{enumerate}
+    \item Start from goal node: $current = goal$
+    \item While $current \neq start$:
+    \begin{itemize}
+        \item Add current to path: $path.insert(0, current)$
+        \item Backtrack: $current = came\_from[current]$
+    \end{itemize}
+    \item Add start node: $path.insert(0, start)$
+    \item Return path as array of grid coordinates
+\end{enumerate}
+
+\textbf{Step 8: Direction Calculation}
+
+The algorithm extracts movement direction from the reconstructed path:
+
+\begin{align}
+next\_grid &= path[1] \quad \text{(first step after start)} \\
+next\_world &= grid\_to\_world(next\_grid) \\
+direction &= normalize(next\_world - player\_pos) \quad \text{with } y = 0.0
+\end{align}
+
+\textbf{Action Decision (When Close to Ball):}
+
+When the striker is within 4.0 units of the ball, the algorithm makes tactical decisions:
+
+\begin{enumerate}
+    \item \textbf{Shooting decision:} If within 25.0 units of goal:
+    \begin{itemize}
+        \item Detects goalkeeper position
+        \item Calculates aim offset to avoid goalkeeper:
+        \begin{align}
+        aim\_z &= \begin{cases}
+        clamp(keeper\_z + sign \times random(8.0, 12.0), -30.0, 30.0) & \text{if goalkeeper detected} \\
+        clamp(ball\_z + random(-8.0, 8.0), -30.0, 30.0) & \text{otherwise}
+        \end{cases} \\
+        sign &= \begin{cases}
+        +1.0 & \text{if } ball\_z < keeper\_z \\
+        -1.0 & \text{otherwise}
+        \end{cases}
+        \end{align}
+        \item Creates shot with elevation: $shot\_dir.y = 1.5$, force $= 20.0$
+    \end{itemize}
+    
+    \item \textbf{Passing decision:} Otherwise, uses fuzzy logic:
+    \begin{itemize}
+        \item Selects teammate: $pick = fuzzy.pick\_teammate\_and\_style(...)$
+        \item Calculates pass force: $force = fuzzy.decide\_pass\_force(distance, pressure)$
+        \item If lob pass: $dir\_pass.y = 5.0$ for aerial trajectory
+    \end{itemize}
+\end{enumerate}
+
+\textbf{Performance Characteristics:}
+
+\begin{itemize}
+    \item \textbf{Time complexity:} $O(b^d)$ worst case, typically much better with good heuristic
+    \item \textbf{Space complexity:} $O(b^d)$ for open and closed sets
+    \item \textbf{Optimality:} Guaranteed optimal path when heuristic is admissible (Manhattan distance satisfies this)
+    \item \textbf{Actual performance:}
+    \begin{itemize}
+        \item Maximum iterations: 200 nodes explored
+        \item Typical pathfinding: 10-50 nodes, 0.3-1.5 milliseconds
+        \item Grid resolution: 4.0 units provides good balance between accuracy and performance
+    \end{itemize}
+\end{itemize}
+
+
+
+\textbf{Algorithm 2: Fuzzy Logic Defender}  
+
+The \textbf{Fuzzy Logic Defender} uses rule-based defensive positioning combined with fuzzy logic decision-making. Unlike DFS, this approach focuses on continuous positioning adjustments:
+
+\begin{itemize}
+    \item \textbf{Interception calculation:} Continuously calculates an interception point 25\% along the path from own goal to ball position.
+    \item \textbf{Formation balancing:} Blends movement toward interception point with return to home position (50\% weight for formation keeping).
+    \item \textbf{Fuzzy pass decision:} When close to ball, uses fuzzy logic system to evaluate pass safety:
+    \begin{itemize}
+        \item Calculates opponent pressure at potential pass target
+        \item If pressure $<$ 0.7: Uses fuzzy logic to select teammate and calculate pass force
+        \item If pressure $\geq$ 0.7: Executes clearance kick away from goal
+    \end{itemize}
+    \item \textbf{Positioning logic:} Maintains defensive position relative to goal while reacting to ball movement.
+\end{itemize}
+
+This approach provides reactive, continuous defensive behavior suitable for maintaining formation while responding to threats.
+
+
+\subsubsection{Goalkeeper AI}
+\textbf{Algorithm: Rule-Based Predictive Positioning}  
+
+The \textbf{Goalkeeper AI} implements a rule-based system with predictive positioning logic focused on maintaining defensive coverage within the penalty area (D-box). The implementation enforces strict boundary constraints:
+
+\begin{itemize}
+    \item \textbf{D-box (Penalty Area) Definition:}
+    \begin{itemize}
+        \item Team A: Goal at $x = +58$, keeper constrained between $x = [46, 58]$
+        \item Team B: Goal at $x = -58$, keeper constrained between $x = [-58, -46]$
+        \item Width constraint: $z \in [-12, +12]$ units
+        \item Depth: 12 units from goal line
+    \end{itemize}
+    \item \textbf{Boundary Enforcement:} The goalkeeper is forcibly repositioned if it moves outside the D-box boundaries, ensuring realistic goalkeeper behavior.
+    \item \textbf{Predictive Positioning:} The target position is calculated as the ball position, clamped to D-box boundaries. This predictive approach allows the goalkeeper to position itself based on current ball location rather than reactive chasing.
+    \item \textbf{Movement Logic:}
+    \begin{itemize}
+        \item Calculates distance to clamped target position
+        \item Moves toward target if distance $>$ 0.5 units
+        \item Maintains position if within 0.5 units of target
+    \end{itemize}
+    \item \textbf{Clearance Logic:} When the ball is within 2.0 units:
+    \begin{itemize}
+        \item Kicks the ball toward midfield ($x = 0$) with high vertical arc ($y = 8.0$)
+        \item Uses force of 25.0 units for long-range clearance
+        \item Prevents opponent scoring opportunities by clearing danger
+    \end{itemize}
+    \item \textbf{Constraint-Based Design:} Unlike other AI agents, the goalkeeper prioritizes maintaining positional constraints over complex search algorithms, ensuring it never leaves its designated area while remaining responsive to ball movement.
+\end{itemize}
+
+This rule-based approach provides predictable, reliable goalkeeper behavior essential for defensive stability. The constraint-based design prevents unrealistic goalkeeper movement while maintaining effective shot-blocking coverage.
+
+\subsubsection{Fuzzy Logic System}
+
+The shared \textbf{Fuzzy Logic System} (\texttt{Fuzzy3D.gd}) is a core component that enhances all AI modules by managing decision-making under uncertainty. The implementation uses fuzzy membership functions and weighted aggregation to create smooth, human-like decision transitions. The system provides three main functions:
+
+\textbf{1. Pass Force Calculation (\texttt{decide\_pass\_force()})}
+
+This function calculates the optimal pass force based on distance and opponent pressure using fuzzy membership functions:
+
+\begin{itemize}
+    \item \textbf{Input Variables:}
+    \begin{itemize}
+        \item \textit{Distance:} Distance to target teammate (in game units)
+        \item \textit{Pressure:} Opponent pressure level, normalized to [0, 1]
+    \end{itemize}
+    \item \textbf{Fuzzy Membership Functions:}
+    \begin{itemize}
+        \item \textit{Near/Distance:} $near = clamp(1.0 - distance/20.0, 0.0, 1.0)$, $far = 1.0 - near$
+        \item \textit{Low/High Pressure:} $low\_pressure = clamp(1.0 - pressure, 0.0, 1.0)$, $high\_pressure = 1.0 - low\_pressure$
+    \end{itemize}
+    \item \textbf{Fuzzy Rules and Weighted Output:}
+    \begin{itemize}
+        \item \textit{Slow pass:} $w_{slow} = near \times low\_pressure$ (appropriate when close and safe)
+        \item \textit{Medium pass:} $w_{medium} = near \times high\_pressure + far \times low\_pressure$ (close under pressure or far but safe)
+        \item \textit{Fast pass:} $w_{fast} = far \times high\_pressure$ (far distance with high pressure requires speed)
+    \end{itemize}
+    \item \textbf{Defuzzification:} The output force is calculated using weighted average:
+    \begin{equation}
+        force = \frac{w_{slow} \times 8.0 + w_{medium} \times 14.0 + w_{fast} \times 24.0}{w_{slow} + w_{medium} + w_{fast} + \epsilon}
+    \end{equation}
+    where $\epsilon = 0.0001$ prevents division by zero.
+\end{itemize}
+
+\textbf{2. Teammate Selection and Pass Style (\texttt{pick\_teammate\_and\_style()})}
+
+This function selects the best teammate for passing and determines whether to use a lob pass or straight pass:
+
+\begin{itemize}
+    \item \textbf{Evaluation Criteria for Each Teammate:}
+    \begin{itemize}
+        \item \textit{Forward position:} Bonus of 0.5 if teammate is ahead toward opponent goal (based on team direction)
+        \item \textit{Distance:} Normalized spacing bonus $clamp(dist/15.0, 0.0, 1.0)$ rewards optimal passing distances
+        \item \textit{Opponent pressure:} Calculates minimum distance to nearest opponent near the target, converts to pressure: $pressure = clamp(1.0 - min\_opponent\_distance/10.0, 0.0, 1.0)$
+        \item \textit{Safety:} $safety = 1.0 - pressure$ (inverse of pressure)
+    \end{itemize}
+    \item \textbf{Scoring Function:} Each teammate receives a score:
+    \begin{equation}
+        score = safety \times 0.6 + forward\_bonus \times 0.2 + spacing\_bonus \times 0.2
+    \end{equation}
+    \item \textbf{Lob Pass Decision:} A lob pass is chosen probabilistically if $score > 0.55$ and a random check succeeds (50\% chance), representing the uncertainty in real passing decisions.
+    \item \textbf{Output:} Returns dictionary with \texttt{target} (Vector3 position) and \texttt{lob} (boolean flag).
+\end{itemize}
+
+\textbf{3. Kick Conflict Resolution (\texttt{resolve\_kick\_conflict()})}
+
+When multiple players attempt to kick the ball simultaneously, this function resolves the conflict using fuzzy evaluation:
+
+\begin{itemize}
+    \item \textbf{Conflict Detection:} Takes two kick intentions (direction and force) from different players.
+    \item \textbf{Evaluation Factors:}
+    \begin{itemize}
+        \item \textit{Goal alignment:} Dot product between kick direction and goal direction (values [-1, 1])
+        \item \textit{Space availability:} Distance to nearest opponent along the kick trajectory (normalized to [0, 1])
+        \item \textit{Teammate blocking:} Counts teammates positioned along the kick trajectory (penalty)
+        \item \textit{Conflict angle:} Measures opposition between two kick directions: $conflict = clamp(1.0 - max(0, dir\_a \cdot dir\_b), 0.0, 1.0)$
+    \end{itemize}
+    \item \textbf{Fuzzy Scoring:} Each kick option receives a weighted score:
+    \begin{equation}
+        score = goal\_align \times 0.45 + space \times 0.35 - blocks \times 0.2 - conflict \times 0.1
+    \end{equation}
+    \item \textbf{Decision Logic:}
+    \begin{itemize}
+        \item If scores differ by $>$ 0.1: Select the higher-scoring option
+        \item If scores are close ($\leq$ 0.1): Blend directions toward the more goal-aligned option
+        \item Force adjustment: Increases force under pressure: $force_{final} = clamp(force + pressure \times 3.0, 8.0, 30.0)$
+    \end{itemize}
+\end{itemize}
+
+\textbf{Integration Across AI Modules}
+
+The fuzzy logic system is integrated throughout all AI algorithms:
+\begin{itemize}
+    \item \textbf{Midfielder AI:} Uses \texttt{decide\_pass\_force()} in Alpha-Beta and BFS algorithms for pass force calculation
+    \item \textbf{Striker AI:} A* Striker uses \texttt{pick\_teammate\_and\_style()} when deciding to pass
+    \item \textbf{Defender AI:} Both DFS and Fuzzy defenders use fuzzy teammate selection and pass force when regaining possession
+    \item \textbf{All positions:} Utilize fuzzy conflict resolution when multiple players compete for ball control
+\end{itemize}
+
+This comprehensive fuzzy logic integration ensures smooth, natural decision-making across all player roles, handling the inherent uncertainty in dynamic game situations.
+
+\begin{table}[h!]
+\begin{spacing}{1.3}
+\centering
+\begin{tabular}{|c|c|c|c|}
+\hline
+\textbf{Football Position} & \textbf{Algorithm 1} & \textbf{Algorithm 2} & \textbf{Algorithm 3} \\
+\hline
+\textbf{Midfielder} & Alpha-Beta Pruning (Minimax) & Breadth-First Search (BFS) & Greedy Algorithm \\
+\hline
+\textbf{Striker} & Hill Climbing & A* Pathfinding & Classic Striker \\
+\hline
+\textbf{Defender} & Depth-First Search (DFS) & Fuzzy Logic Defender & N/A \\
+\hline
+\textbf{Goalkeeper} & Rule-Based Predictive Positioning & N/A & N/A \\
+\hline
+\end{tabular}
+\caption{Football Position and Corresponding AI Algorithms}
+\end{spacing}
+\end{table}
+
+
+
+\subsection{Implementation Structure and Code Organization}
+
+The SoccerMind project follows a modular architecture with clear separation of concerns. The implementation structure is organized as follows:
+
+\textbf{AI Module Structure (\texttt{scripts3d/ai/})}
+
+The AI implementations are organized by player role, with each role having multiple algorithm variants:
+\begin{itemize}
+    \item \textbf{Midfielder AI:} Three implementations
+    \begin{itemize}
+        \item \texttt{Midfielder3DAlphaBeta.gd}: Minimax with alpha-beta pruning (depth 3)
+        \item \texttt{Midfielder3DBFS.gd}: Breadth-first search exploration (depth 2, 60 iterations max)
+        \item \texttt{Midfielder3DGreedy.gd}: Greedy immediate-action evaluation
+    \end{itemize}
+    \item \textbf{Striker AI:} Three implementations
+    \begin{itemize}
+        \item \texttt{Striker3DHillClimb.gd}: Hill climbing for shot optimization and pathfinding
+        \item \texttt{Striker3DAStar.gd}: A* pathfinding with grid-based navigation
+        \item \texttt{Striker3D.gd}: Classic striker with basic goal-oriented behavior
+    \end{itemize}
+    \item \textbf{Defender AI:} Two implementations
+    \begin{itemize}
+        \item \texttt{Defender3DDFS.gd}: Depth-first search for defensive positioning (depth 2, 50 iterations max)
+        \item \texttt{Defender3D.gd}: Fuzzy logic-based continuous defensive positioning
+    \end{itemize}
+    \item \textbf{Goalkeeper AI:}
+    \begin{itemize}
+        \item \texttt{Goalkeeper3D.gd}: Rule-based predictive positioning with D-box constraints
+    \end{itemize}
+\end{itemize}
+
+\textbf{Fuzzy Logic Module (\texttt{Fuzzy3D.gd})}
+
+The fuzzy logic system is implemented as a singleton-style module that all AI agents can access:
+\begin{itemize}
+    \item \texttt{decide\_pass\_force(distance, pressure)}: Calculates optimal pass force using fuzzy membership functions
+    \item \texttt{pick\_teammate\_and\_style(player, teammates, opponents, is\_team\_a)}: Selects best teammate and pass style using fuzzy scoring
+    \item \texttt{resolve\_kick\_conflict(player\_a, player\_b, dir\_a, force\_a, ball, teammates, opponents, is\_team\_a)}: Resolves conflicts when multiple players attempt to kick simultaneously
+    \item \texttt{\_point\_along\_ray(origin, dir, point, radius)}: Helper function for trajectory intersection detection
+\end{itemize}
+
+\textbf{Configuration Management (\texttt{AIConfigManager.gd})}
+
+The AI configuration system allows dynamic assignment of algorithms to players:
+\begin{itemize}
+    \item Maintains registry of available AI algorithms by role
+    \item Supports per-player algorithm configuration for Team A and Team B
+    \item Provides fallback mechanisms for missing configurations
+    \item Enables runtime algorithm switching through UI selection screen
+\end{itemize}
+
+\textbf{Team Management (\texttt{Team3D.gd})}
+
+The team management system handles:
+\begin{itemize}
+    \item Dynamic AI script loading based on configuration
+    \item Default algorithm assignments (Team A: classic algorithms, Team B: advanced algorithms)
+    \item Player role assignment and formation positioning
+    \item AI script instantiation and attachment to player nodes
+\end{itemize}
+
+This modular structure enables easy extension, testing, and comparison of different AI strategies while maintaining code reusability and clear interfaces between components.
+
+\subsection{Optimization and Refinement}
+The final phase focused on improving the efficiency, realism, and adaptability of the system. Optimization techniques included:
+
+\begin{itemize}
+    \item \textbf{Performance Optimization:} Algorithm-specific iteration limits (50-200 iterations) and depth constraints (2-3 levels) ensure real-time performance while maintaining decision quality.
+    \item \textbf{Heuristic Parameter Tuning:} Weight adjustments in evaluation functions were refined through iterative testing to balance offensive and defensive behaviors.
+    \item \textbf{Fuzzy Logic Refinement:} Membership function thresholds and weighted aggregation coefficients were calibrated to produce natural, human-like decision transitions.
+    \item \textbf{Code Optimization:} Early termination conditions, state caching, and efficient data structures reduce redundant computations.
+    \item \textbf{Boundary Enforcement:} Goalkeeper D-box constraints and field boundary checks prevent unrealistic player positions.
+\end{itemize}
+
+These optimizations enhanced both visual smoothness (60 FPS target) and gameplay quality, ensuring the simulation runs smoothly while maintaining strategic depth.
+
+
+\end{spacing}
+\section{Key AI Features}
+\begin{spacing}{1.3}
+The \textbf{SoccerMind} project integrates several advanced artificial intelligence (AI) techniques that collectively enhance the realism, adaptability, and interactivity of gameplay. These key AI features allow agents to make intelligent, human-like decisions in dynamic and uncertain environments. The most important AI-driven components are described below.
+
+\subsection{Role-Specific Intelligence}
+Each player type—Midfielder, Striker, Defender, and Goalkeeper—is assigned unique decision-making algorithms based on their tactical roles. The modular design ensures that:
+
+\begin{itemize}
+    \item \textbf{Midfielders} utilize Alpha-Beta Pruning, Breadth-First Search (BFS), or Greedy algorithms for balanced ball distribution, systematic exploration of passing routes, or fast decision-making respectively.
+    \item \textbf{Strikers} apply Hill Climbing for shot optimization or A* Pathfinding for optimal positioning, enabling goal-scoring opportunities through iterative improvement or strategic pathfinding.
+    \item \textbf{Defenders} employ Depth-First Search (DFS) for systematic defensive positioning or Fuzzy Logic for reactive defensive behavior, ensuring effective interception and marking capabilities.
+    \item \textbf{Goalkeepers} rely on rule-based predictive positioning with strict boundary constraints, maintaining defensive coverage within the penalty area while reacting to ball movement.
+\end{itemize}
+
+This role-based intelligence framework allows for flexible, realistic, and context-aware player behavior, with each position optimized for its specific tactical responsibilities.
+
+\subsection{Fuzzy Logic Decision-Making}
+A shared Fuzzy Logic System (\texttt{Fuzzy3D.gd}) is implemented across all AI agents to handle uncertainty and ambiguous situations. The system uses fuzzy membership functions and weighted aggregation to enable smoother, more natural gameplay transitions. Key capabilities include:
+
+\begin{itemize}
+    \item \textbf{Pass Force Calculation:} Dynamically adjusts pass strength (8-24 units) based on distance and opponent pressure using fuzzy membership functions for near/far distances and low/high pressure levels.
+    \item \textbf{Teammate Selection:} Evaluates all teammates using fuzzy scoring that considers safety (60\% weight), forward positioning (20\% weight), and optimal spacing (20\% weight).
+    \item \textbf{Pass Style Selection:} Probabilistically determines when to use lob passes versus straight passes based on pass quality and game situation.
+    \item \textbf{Conflict Resolution:} Resolves simultaneous ball-kick attempts by multiple players using fuzzy evaluation of goal alignment, space availability, and teammate blocking risks.
+\end{itemize}
+
+This fuzzy approach reduces abrupt changes in behavior, creating gradual transitions between actions that more closely resemble human decision-making under uncertainty, significantly improving overall game realism.
+
+\subsection{Adaptive Learning and Decision Refinement}
+The AI system is designed to support future integration of reinforcement learning mechanisms. Even without full learning loops, the current system allows for continuous feedback through state evaluation and heuristic updates, dynamic tuning of decision thresholds for improved responsiveness, and potential for incremental agent learning over multiple simulations. This adaptability helps the AI evolve toward smarter, experience-based decision-making.
+
+\subsection{Strategic Awareness and Team Coordination}
+\textbf{SoccerMind} focuses heavily on team-level intelligence. Agents share situational data such as ball position, teammate proximity, and opponent movement to maintain effective coordination. The system ensures formation maintenance through cooperative positioning, strategic passing that prioritizes space creation and control, and collective defense via communication between defenders and the goalkeeper. This coordination fosters tactical depth, simulating realistic soccer strategies.
+
+\subsection{Real-Time Environment Awareness}
+All agents constantly monitor the 3D environment for ball movement, player positions, and game boundaries. This awareness enables fast reaction to opponent actions, collision avoidance, and efficient pathfinding. It also allows for smooth transitions between offensive and defensive roles. The environment awareness system integrates seamlessly with AI logic to maintain continuous responsiveness.
+
+\subsection{Modular and Scalable AI Framework}
+The entire AI system is built with a modular architecture, meaning each component—decision logic, fuzzy system, or role algorithm—can be independently improved or replaced. This modularity provides easy integration of new AI models or learning techniques, simplified debugging and code maintenance, and flexibility for scaling up to larger teams or more complex environments.
+\end{spacing}
+
+\section{Discussion}
+\begin{spacing}{1.3}
+The results of the SoccerMind project demonstrate that the integration of diverse AI algorithms significantly enhances gameplay realism and strategic depth. Each player type exhibited distinctive and adaptive behavior aligned with its tactical role—Midfielders showed effective ball distribution using heuristic evaluation, Strikers optimized goal attempts through hill climbing, and Defenders efficiently intercepted plays using depth-first exploration. The inclusion of the Fuzzy Logic System contributed to smoother transitions and more human-like decision-making, especially in uncertain conditions. Although the system achieved a high level of interaction and autonomy, occasional inconsistencies in timing and reaction speed suggest potential areas for improvement through reinforcement learning and advanced predictive modeling. Overall, the project successfully validated the feasibility of using AI-driven agents to simulate intelligent soccer gameplay in a 3D environment.
+\end{spacing}
+
+\section{Conclusion}
+\begin{spacing}{1.3}
+In conclusion, the SoccerMind project successfully combines artificial intelligence, game development, and simulation design to create a realistic and interactive soccer experience. By implementing algorithms such as Alpha-Beta Pruning, Hill Climbing, and Depth-First Search, along with a Fuzzy Logic System, the project demonstrates how AI can replicate human-like reasoning and teamwork. The modular design ensures scalability, while the visual 3D interface enhances engagement and educational value. This project not only serves as a foundation for future research in intelligent agent behavior but also as a practical example of how AI can be applied to dynamic, real-world scenarios such as sports simulation.
+\end{spacing}
+
+\section{References}
+\begin{spacing}{1.3}
+\begin{enumerate}
+    \item Godot Engine Documentation. (2025). \textit{Godot Engine – Official 3D and 2D Game Engine}. Retrieved from: \url{https://godotengine.org/}
+    
+    \item GeeksforGeeks. (2025). \textit{Alpha-Beta Pruning in Minimax Algorithm}. Retrieved from: \url{https://www.geeksforgeeks.org/alpha-beta-pruning-in-minimax-algorithm/}
+    
+    \item GeeksforGeeks. (2025). \textit{Breadth First Search (BFS) Algorithm}. Retrieved from: \url{https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/}
+    
+    \item GeeksforGeeks. (2025). \textit{Depth First Search (DFS) Algorithm}. Retrieved from: \url{https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/}
+    
+    \item GeeksforGeeks. (2025). \textit{Hill Climbing Algorithm in Artificial Intelligence}. Retrieved from: \url{https://www.geeksforgeeks.org/hill-climbing-algorithm-in-ai/}
+    
+    \item Tutorialspoint. (2025). \textit{Introduction to Fuzzy Logic}. Retrieved from: \url{https://www.tutorialspoint.com/fuzzy_logic/index.htm}
+    
+    \item Towards Data Science. (2025). \textit{Reinforcement Learning: An Introduction}. Retrieved from: \url{https://towardsdatascience.com/reinforcement-learning-an-introduction-8dfe0fbb6b2}
+\end{enumerate}
+\end{spacing}
+
+\end{document}

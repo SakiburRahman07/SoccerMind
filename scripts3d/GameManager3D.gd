@@ -26,6 +26,8 @@ var passes_b: int = 0
 var _last_kick_time: float = -9999.0
 var _last_kick_team_a: bool = true
 var _last_kick_kicker_id: int = -1
+var _last_kick_direction: Vector3 = Vector3.ZERO
+var _last_kick_force: float = 0.0
 var _last_kick_pass_logged: bool = false
 var _last_kick_shot_logged: bool = false
 
@@ -44,6 +46,10 @@ var stall_seconds_threshold: float = 2.0
 var health_check_timer: float = 0.0
 var health_check_interval: float = 10.0  # Check every 10 seconds
 
+# AI selection screen
+var ai_selection_screen: Control = null
+var game_started: bool = false
+
 func _ready() -> void:
 	field = get_node_or_null("Field3D") as Node3D
 	if field == null:
@@ -56,12 +62,11 @@ func _ready() -> void:
 	# Make discoverable to other nodes (e.g., Ball) for audio callbacks
 	if not is_in_group("game_manager"):
 		add_to_group("game_manager")
-	# Initialize audio players
-	_setup_audio()
-	_setup_goals()
-	_spawn_teams()
-	_reset_kickoff()
-	set_process(true)
+	
+	# Show AI selection screen first
+	_show_ai_selection_screen()
+	# Delay game initialization until user starts match
+	set_process(false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -100,6 +105,8 @@ func register_kick(by_team_a: bool, kicker_id: int, direction: Vector3, force: f
 	_last_kick_time = Time.get_unix_time_from_system()
 	_last_kick_team_a = by_team_a
 	_last_kick_kicker_id = kicker_id
+	_last_kick_direction = direction.normalized() if direction.length() > 0.0 else Vector3.ZERO
+	_last_kick_force = force
 	_last_kick_pass_logged = false
 	_last_kick_shot_logged = false
 
@@ -122,20 +129,82 @@ func _update_stats_detection(_delta: float) -> void:
 				else:
 					passes_b += 1
 				_last_kick_pass_logged = true
-	# Detect shot attempt within 3.0s near goal mouth
+	# Detect shot attempt - only if directed toward goalpost area
 	if not _last_kick_shot_logged and since <= 3.0:
-		if _is_in_shot_region(ball.global_transform.origin, _last_kick_team_a):
+		var is_shot = _is_shot_directed_at_goal(ball.global_transform.origin, _last_kick_team_a, _last_kick_direction)
+		if is_shot:
 			if _last_kick_team_a:
 				shots_a += 1
+				print("📊 Shot detected for Team A at position: ", ball.global_transform.origin)
 			else:
 				shots_b += 1
+				print("📊 Shot detected for Team B at position: ", ball.global_transform.origin)
 			_last_kick_shot_logged = true
 	# Expire tracking after 4s
 	if since > 4.0:
 		_last_kick_time = -9999.0
 
+func _is_shot_directed_at_goal(pos: Vector3, team_a: bool, kick_direction: Vector3) -> bool:
+	"""Check if shot is actually directed toward the goalpost area"""
+	if kick_direction == Vector3.ZERO:
+		return false
+	
+	var opponent_goal_x: float = 58.0 if team_a else -58.0
+	var goal_center: Vector3 = Vector3(opponent_goal_x, 0.0, 0.0)
+	var goal_width: float = 12.0
+	var goal_height: float = 7.0
+	
+	# Calculate where the kick is aiming
+	# Project the kick direction forward to see if it would hit the goal area
+	var kick_target: Vector3 = pos + kick_direction * 50.0  # Project 50 units forward
+	
+	# Check 1: Is the kick direction pointing toward the opponent goal?
+	var to_goal: Vector3 = goal_center - pos
+	var to_goal_normalized: Vector3 = to_goal.normalized() if to_goal.length() > 0.0 else Vector3.ZERO
+	
+	# Calculate angle between kick direction and goal direction
+	var dot_product: float = kick_direction.dot(to_goal_normalized)
+	
+	# Kick must be aimed roughly toward goal (at least 60% aligned with goal direction)
+	if dot_product < 0.6:
+		return false
+	
+	# Check 2: Is the projected target within the goal area?
+	var goal_left_post: Vector3 = Vector3(opponent_goal_x, goal_height / 2.0, -goal_width / 2.0)
+	var goal_right_post: Vector3 = Vector3(opponent_goal_x, goal_height / 2.0, goal_width / 2.0)
+	var goal_center_top: Vector3 = Vector3(opponent_goal_x, goal_height / 2.0, 0.0)
+	
+	# Check if projected target is within goal bounds (with some margin)
+	var target_in_goal_x: bool = abs(kick_target.x - opponent_goal_x) < 5.0
+	var target_in_goal_z: bool = abs(kick_target.z) < (goal_width / 2.0 + 2.0)  # Allow some margin
+	var target_in_goal_y: bool = kick_target.y >= 0.0 and kick_target.y <= goal_height + 2.0
+	
+	if target_in_goal_x and target_in_goal_z and target_in_goal_y:
+		# Shot is directed at goal area
+		return true
+	
+	# Check 3: Alternative - is ball currently in or near goal area AND moving toward it?
+	if abs(pos.x - opponent_goal_x) < 15.0:  # Within 15 units of goal
+		var ball_vel_x = ball.velocity.x if ball else 0.0
+		var moving_toward_goal = false
+		if team_a:
+			moving_toward_goal = ball_vel_x > 5.0  # Moving right (toward opponent goal)
+		else:
+			moving_toward_goal = ball_vel_x < -5.0  # Moving left (toward opponent goal)
+		
+		if moving_toward_goal:
+			# Check if ball is within goalpost width
+			if abs(pos.z) < (goal_width / 2.0 + 3.0):
+				# Ball has upward trajectory (shot, not ground pass)
+				var ball_vel_y = ball.velocity.y if ball else 0.0
+				if ball_vel_y > 0.5:  # Has lift
+					return true
+	
+	return false
+
 func _is_in_shot_region(pos: Vector3, team_a: bool) -> bool:
-	# Use same post/crossbar constraints, but within 6 units of the goal plane on attacking side
+	"""Legacy function - kept for compatibility, checks if position is in shot region"""
+	var opponent_goal_x: float = 58.0 if team_a else -58.0
 	var goal_width: float = 12.0
 	var goal_height: float = 7.0
 	var max_goal_y: float = goal_height / 2.0
@@ -143,8 +212,6 @@ func _is_in_shot_region(pos: Vector3, team_a: bool) -> bool:
 	var between_posts: bool = abs(pos.z) <= (goal_width * 0.5)
 	if not (under_crossbar and between_posts):
 		return false
-	var plane_x: float = 58.0 if team_a else -58.0
-	# If attacking right (+58): be within [52, 58]; else [-58, -52]
 	if team_a:
 		return pos.x >= 52.0 and pos.x <= 58.0
 	else:
@@ -546,3 +613,43 @@ func _perform_health_check(delta: float) -> void:
 		if stuck_players > 8:  # More than 8 players stuck
 			print("Many players stuck - performing emergency reset")
 			_reset_kickoff()
+
+func _show_ai_selection_screen() -> void:
+	"""Show AI selection screen before game starts"""
+	var screen_scene = load("res://scenes3d/AISelectionScreen.tscn")
+	if screen_scene:
+		ai_selection_screen = screen_scene.instantiate()
+		# Add to CanvasLayer so it appears on top
+		var canvas_layer = get_node_or_null("CanvasLayer")
+		if canvas_layer:
+			canvas_layer.add_child(ai_selection_screen)
+		else:
+			add_child(ai_selection_screen)
+		
+		# Connect to match_started signal
+		if ai_selection_screen.has_signal("match_started"):
+			if not ai_selection_screen.match_started.is_connected(_on_match_started):
+				ai_selection_screen.match_started.connect(_on_match_started)
+		else:
+			push_warning("AISelectionScreen missing match_started signal")
+	else:
+		push_warning("Failed to load AISelectionScreen.tscn, starting game with defaults")
+		_initialize_game()
+
+func _on_match_started() -> void:
+	"""Called when user clicks 'Start Match' button"""
+	if ai_selection_screen:
+		ai_selection_screen.queue_free()
+		ai_selection_screen = null
+	
+	game_started = true
+	_initialize_game()
+	set_process(true)
+
+func _initialize_game() -> void:
+	"""Initialize game components (original _ready logic)"""
+	# Initialize audio players
+	_setup_audio()
+	_setup_goals()
+	_spawn_teams()
+	_reset_kickoff()

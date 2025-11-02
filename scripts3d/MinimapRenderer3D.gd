@@ -22,7 +22,10 @@ var team_b_color: Color = Color.RED
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(minimap_width, minimap_height)
+	# Initialize references after a short delay to allow game to start
 	call_deferred("_initialize_references")
+	# Also try to initialize periodically until we find references
+	call_deferred("_try_initialize_references")
 
 func _initialize_references() -> void:
 	# Find game components
@@ -30,10 +33,31 @@ func _initialize_references() -> void:
 	if main_scene and main_scene.name == "Main3D":
 		var field = main_scene.get_node_or_null("Field3D")
 		if field:
-			ball = field.get_node_or_null("Ball")
+			# Ball is at Field3D/Ball (from Field3D.tscn line 155)
+			ball = field.get_node_or_null("Ball") as CharacterBody3D
 		
+		# Teams are spawned after AI selection, so they might not exist yet
 		team_a = main_scene.get_node_or_null("TeamA")
 		team_b = main_scene.get_node_or_null("TeamB")
+		
+		# Debug print to verify references (only once per initialization attempt)
+		if ball and not is_instance_valid(ball):
+			ball = null
+		
+		if team_a and not is_instance_valid(team_a):
+			team_a = null
+		
+		if team_b and not is_instance_valid(team_b):
+			team_b = null
+
+func _try_initialize_references() -> void:
+	"""Keep trying to initialize references until we find them"""
+	if not ball or not team_a or not team_b:
+		_initialize_references()
+		# Keep trying every 0.5 seconds until we find all references
+		if not ball or not team_a or not team_b:
+			# Use call_deferred to avoid recursive calls
+			get_tree().create_timer(0.5).timeout.connect(_try_initialize_references)
 
 func _draw() -> void:
 	var rect = get_rect()
@@ -80,23 +104,35 @@ func _draw_players(rect: Rect2) -> void:
 	var player_radius = 3.0
 	
 	# Draw Team A players
-	if team_a:
+	if team_a and is_instance_valid(team_a):
+		var player_count = 0
 		for child in team_a.get_children():
-			if child is Player3D:
+			if child is Player3D and is_instance_valid(child):
 				var world_pos = child.global_position
 				var minimap_pos = _world_to_minimap(world_pos, rect)
 				draw_circle(minimap_pos, player_radius, team_a_color)
+				player_count += 1
+		# Debug: if we expect 6 players but find none, try reinitializing
+		if player_count == 0:
+			call_deferred("_initialize_references")
 	
 	# Draw Team B players
-	if team_b:
+	if team_b and is_instance_valid(team_b):
+		var player_count = 0
 		for child in team_b.get_children():
-			if child is Player3D:
+			if child is Player3D and is_instance_valid(child):
 				var world_pos = child.global_position
 				var minimap_pos = _world_to_minimap(world_pos, rect)
 				draw_circle(minimap_pos, player_radius, team_b_color)
+				player_count += 1
+		# Debug: if we expect 6 players but find none, try reinitializing
+		if player_count == 0:
+			call_deferred("_initialize_references")
 
 func _draw_ball(rect: Rect2) -> void:
-	if not ball:
+	if not ball or not is_instance_valid(ball):
+		# Try to reinitialize if ball is missing
+		call_deferred("_initialize_references")
 		return
 	
 	var world_pos = ball.global_position
@@ -121,5 +157,10 @@ func _world_to_minimap(world_pos: Vector3, rect: Rect2) -> Vector2:
 	)
 
 func _process(_delta: float) -> void:
+	# Ensure references are still valid
+	if not ball or not team_a or not team_b:
+		# Try to reinitialize references periodically
+		call_deferred("_initialize_references")
+	
 	# Redraw minimap every frame to show real-time positions
 	queue_redraw()
